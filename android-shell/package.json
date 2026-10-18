@@ -1,0 +1,14 @@
+{
+  "name": "shajara-android",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Android shell (Capacitor) for the offline family-tree app",
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/filesystem": "^7.0.0",
+    "@capacitor/share": "^7.0.0"
+  }
+}

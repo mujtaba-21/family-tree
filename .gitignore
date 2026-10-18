@@ -1,0 +1,10 @@
+tests/out/
+tests/shots/
+dist/
+android-shell/node_modules/
+android-shell/android/
+android-shell/www/
+android-shell/signing/
+__pycache__/
+*.pyc
+.DS_Store

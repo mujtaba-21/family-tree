@@ -1,0 +1,12 @@
+{
+  "appId": "com.shajara.familytree",
+  "appName": "شجرة العائلة",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": { "launchAutoHide": true }
+  }
+}

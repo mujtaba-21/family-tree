@@ -1,0 +1,135 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", "android-shell/**", "tools/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install Capacitor
+        working-directory: android-shell
+        run: npm install --no-audit --no-fund
+
+      - name: Copy the web app into the shell
+        run: |
+          rm -rf android-shell/www
+          cp -r web android-shell/www
+          rm -f android-shell/www/sw.js
+
+      - name: Create the Android project
+        working-directory: android-shell
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Patch (no internet permission, no cloud backup, name, icons, version)
+        run: bash android-shell/patch.sh
+
+      - name: Build release
+        working-directory: android-shell/android
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Sign
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
+        run: |
+          set -euo pipefail
+          if [ -n "${KEYSTORE_B64:-}" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > release.jks
+            PASS="$KEYSTORE_PASS"
+          elif [ -f android-shell/signing/release.jks ]; then
+            cp android-shell/signing/release.jks release.jks
+            PASS="$(cat android-shell/signing/password.txt)"
+          else
+            echo "No signing key: refusing to build an APK that could not be updated later." >&2
+            exit 1
+          fi
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          IN=android-shell/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          "$BT/zipalign" -p -f 4 "$IN" aligned.apk
+          "$BT/apksigner" sign --ks release.jks --ks-key-alias shajara --ks-pass "pass:$PASS" --key-pass "pass:$PASS" --out shajara.apk aligned.apk
+          "$BT/apksigner" verify --print-certs shajara.apk
+          ("$BT/aapt" dump permissions shajara.apk || "$BT/aapt2" dump permissions shajara.apk) | tee permissions.txt
+          if grep -q "android.permission.INTERNET" permissions.txt; then echo "INTERNET permission present" >&2; exit 1; fi
+          rm -f release.jks
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: "شجرة العائلة 1.0.${{ github.run_number }}"
+          body: "ملف التثبيت للأندرويد: shajara.apk"
+          files: shajara.apk
+          make_latest: true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shajara-apk
+          path: shajara.apk
+
+  # Starts the APK on an Android emulator and keeps a screenshot + log, to confirm it runs without internet permission.
+  smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: shajara-apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install -r shajara.apk
+            adb shell monkey -p com.shajara.familytree -c android.intent.category.LAUNCHER 1
+            sleep 20
+            adb exec-out screencap -p > launch.png
+            adb shell dumpsys package com.shajara.familytree | grep -i permission > perms.txt || true
+            adb logcat -d > logcat.txt || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test
+          path: |
+            launch.png
+            perms.txt
+            logcat.txt
+
+  # Publishes the web/iPhone version on GitHub Pages (gh-pages branch).
+  pages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/build_web.py dist
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          force_orphan: true
