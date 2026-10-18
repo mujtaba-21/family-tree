@@ -131,7 +131,7 @@ export function menu(anchor, items) {
 }
 
 let toastTimer = null;
-export function toast(text, ms = 2600) {
+export function toast(text, ms = 2200) {
   document.querySelectorAll(".toast").forEach((t) => t.remove());
   const t = h("div", { class: "toast", role: "status" }, text);
   document.body.appendChild(t);
