@@ -1,6 +1,7 @@
 """Turns the synthetic 137-person family into an app backup file (family.json) with some dates."""
 import json, random, sys
-src = open("/home/claude/tree/data.js", encoding="utf-8").read()
+import os
+src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "sample-data.js"), encoding="utf-8").read()
 d = json.loads(src[len("window.DATA="):-1])
 R = random.Random(5)
 persons, unions = {}, {}
