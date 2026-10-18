@@ -1,0 +1,10 @@
+android 15 (API 35)
+screen: Physical size: 1080x2400, Physical density: 420
+  Current WebView package (name, version): (com.google.android.webview, 124.0.6367.219)
+Performing Streamed Install
+Success
+release app: running
+Success
+Performing Streamed Install
+Success
+release=1 e2e=0

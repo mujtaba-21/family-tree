@@ -1,0 +1,18 @@
+device: sdk_gphone64_x86_64, Android 15 (API 35)
+OK    app opens — {"native":true,"viewport":"412x842@2.625","safe":"0px/0px","chrome":"124.0.6367.219","font":true,"compressionStream":"function"} (7.9s)
+OK    create a family — #/f/1462df0583314ee3/p/a016befaabf444c2 (6.3s)
+OK    add three children at once — 3 children shown (6.6s)
+OK    tree; Back closes a sheet and stays on the screen — sheet closed, tree still open (5.4s)
+OK    PDF → save on the phone — ready in 1.3s; «حُفظ الملف في: Documents ← شجرة العائلة» -rw-rw---- 1 u0_a187 media_rw 21573 2026-10-18 14:52 شجرة-آل-المنصور-2026-10-18.pdf (5.8s)
+OK    PowerPoint → Android share sheet — topResumedActivity=ActivityRecord{ba21993 u0 com.android.intentresolver/.ChooserActivityLauncher t9} || Intent { act=android.intent.action.CHOOSER cat=[android.intent.category.DEFAULT] flg=0x800001 cmp=com.android.intentresolver/.ChooserActivityLauncher clip={text/uri-list hasLabel(0) {U(content)}} (has extras) } (10.3s)
+OK    Back walks back to the family list — #/f/1462df0583314ee3/tree/a016befaabf444c2 → #/f/1462df0583314ee3/p/a016befaabf444c2 →  (3.3s)
+OK    backup → save on the phone, and it counts as backed up — «حُفظ الملف في: Documents ← شجرة العائلة» -rw-rw---- 1 u0_a187 media_rw 886 2026-10-18 14:52 شجرة-آل-المنصور-2026-10-18.zip (5.2s)
+NOTE  import the backup with the system file picker — the picker opened (Intent { act=android.intent.action.GET_CONTENT cat=[android.intent.category.OPENABLE] typ=*/* flg=0x3800000 cmp=com.google.android.documentsui/com.android.documentsui.picker.PickActivity }) but the backup file was not found on its screen
+OK    import a 137-person family — through the file chooser (2.7s)
+OK    big tree: view, then PDF with dates → save — ready in 5.9s; «حُفظ الملف في: Documents ← شجرة العائلة» -rw-rw---- 1 u0_a187 media_rw 1189429 2026-10-18 14:53 شجرة-آل-المنصور-(تجريبية)-2026-10-18.pdf (14.7s)
+OK    add a photo (file chooser) — thumbnail shown (4.7s)
+OK    pick a photo with the system picker — topResumedActivity=ActivityRecord{e1ee278 u0 com.google.android.providers.media.module/com.android.providers.media.photopicker.PhotoPickerGetContentActivity t9} || Intent { act=android.intent.action.GET_CONTENT cat=[android.intent.category.OPENABLE] typ=image/* flg=0x800000 cmp=com.google.android.providers.media.module/com.android.providers.media.photopicker.PhotoPickerGetContentActivity (has extras) } (11.9s)
+OK    Back on the family list closes the app — topResumedActivity=ActivityRecord{f0d3ef7 u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t7} (4.8s)
+OK    reopen: everything is still there — آل المنصور (تجريبية)، آل المنصور (6.4s)
+saved files: total 1204 | -rw-rw---- 1 u0_a187 media_rw 1189429 2026-10-18 14:53 شجرة-آل-المنصور-(تجريبية)-2026-10-18.pdf | -rw-rw---- 1 u0_a187 media_rw 21573 2026-10-18 14:52 شجرة-آل-المنصور-2026-10-18.pdf | -rw-rw---- 1 u0_a187 media_rw 886 2026-10-18 14:52 شجرة-آل-المنصور-2026-10-18.zip
+all required steps passed, 1 note(s)
