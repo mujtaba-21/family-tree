@@ -3,7 +3,7 @@ name: Build
 on:
   push:
     branches: [main]
-    paths: ["web/**", "android-shell/**", "tools/**", ".github/workflows/android.yml"]
+    paths: ["web/**", "android-shell/**", "tools/**", "tests/android/**", ".github/workflows/android.yml"]
   workflow_dispatch:
 
 permissions:
@@ -72,54 +72,109 @@ jobs:
           if grep -q "android.permission.INTERNET" permissions.txt; then echo "INTERNET permission present" >&2; exit 1; fi
           rm -f release.jks
 
-      - name: Publish release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: "شجرة العائلة 1.0.${{ github.run_number }}"
-          body: "ملف التثبيت للأندرويد: shajara.apk"
-          files: shajara.apk
-          make_latest: true
-
       - uses: actions/upload-artifact@v4
         with:
           name: shajara-apk
           path: shajara.apk
 
-  # Starts the APK on an Android emulator and keeps a screenshot + log, to confirm it runs without internet permission.
-  smoke-test:
+      # The same app with WebView debugging switched on and debug signing. Only the checks below use it.
+      - name: Test build
+        working-directory: android-shell/android
+        run: |
+          python3 - <<'PY'
+          import json
+          p = "app/src/main/assets/capacitor.config.json"
+          c = json.load(open(p, encoding="utf-8"))
+          c.setdefault("android", {})["webContentsDebuggingEnabled"] = True
+          json.dump(c, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+          PY
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../../shajara-test.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shajara-test-apk
+          path: shajara-test.apk
+
+  # Android 14 and 15 emulators: the release APK must start, and the walk-through (tests/android) must pass.
+  # Screenshots and logs are kept on the branches test-results-android-14 / -15.
+  check:
     needs: build
     runs-on: ubuntu-latest
-    continue-on-error: true
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 34
+            android: 14
+          - api: 35
+            android: 15
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: shajara-apk
+          path: rel
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: shajara-test-apk
+          path: test
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Test tools
+        working-directory: tests/android
+        run: npm install --no-audit --no-fund
+
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+
       - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: ${{ matrix.api }}
           target: google_apis
           arch: x86_64
+          profile: pixel_6
           disable-animations: true
-          script: |
-            adb install -r shajara.apk
-            adb shell monkey -p com.shajara.familytree -c android.intent.category.LAUNCHER 1
-            sleep 20
-            adb exec-out screencap -p > launch.png
-            adb shell dumpsys package com.shajara.familytree | grep -i permission > perms.txt || true
-            adb logcat -d > logcat.txt || true
-      - uses: actions/upload-artifact@v4
+          script: bash tests/android/run.sh
+
+      - name: Keep the screenshots and logs
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -d tests/android/out ] || exit 0
+          cd tests/android/out
+          git init -q -b results
+          git add -A
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "Android ${{ matrix.android }}, run ${{ github.run_number }}"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" results:test-results-android-${{ matrix.android }}
+
+  # Published only after both checks pass.
+  release:
+    needs: [build, check]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
         with:
-          name: smoke-test
-          path: |
-            launch.png
-            perms.txt
-            logcat.txt
+          name: shajara-apk
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: "شجرة العائلة 1.0.${{ github.run_number }}"
+          body: "ملف التثبيت للأندرويد: shajara.apk"
+          files: shajara.apk
+          make_latest: true
 
   # Publishes the web/iPhone version on GitHub Pages (gh-pages branch).
   pages:

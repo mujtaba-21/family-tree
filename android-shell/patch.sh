@@ -3,6 +3,7 @@
 #  - no INTERNET permission at all (the system itself blocks any network access)
 #  - no automatic cloud backup of app data
 #  - app name, icons, splash, version
+#  - paper-coloured system bars, light theme, no edge-to-edge drawing
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 APP="$HERE/android/app"
@@ -28,6 +29,30 @@ s = s.replace("</manifest>", block + "\n</manifest>")
 s = re.sub(r'android:allowBackup="true"', 'android:allowBackup="false" android:fullBackupContent="false" android:requestLegacyExternalStorage="true"', s)
 if 'android:allowBackup="false"' not in s:
     s = s.replace("<application", '<application android:allowBackup="false" android:fullBackupContent="false" android:requestLegacyExternalStorage="true"', 1)
+open(p, "w", encoding="utf-8").write(s)
+print(s)
+PY
+
+# look: paper-coloured status and navigation bars with dark icons, light theme only, and no drawing under the
+# system bars on Android 15+ (the app keeps its own top bar clear of the clock and battery icons)
+python3 - "$RES/values/styles.xml" <<'PY'
+import re, sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+if "xmlns:tools" not in s:
+    s = s.replace("<resources>", '<resources xmlns:tools="http://schemas.android.com/tools">', 1)
+items = (
+    '\n        <item name="android:windowBackground">@color/splash_bg</item>'
+    '\n        <item name="android:statusBarColor">@color/splash_bg</item>'
+    '\n        <item name="android:navigationBarColor">@color/splash_bg</item>'
+    '\n        <item name="android:windowLightStatusBar">true</item>'
+    '\n        <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>'
+    '\n        <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">true</item>'
+)
+s, n = re.subn(r'<style name="AppTheme\.NoActionBar" parent="[^"]*">', lambda m: '<style name="AppTheme.NoActionBar" parent="Theme.AppCompat.Light.NoActionBar">' + items, s)
+assert n == 1, "AppTheme.NoActionBar not found in styles.xml"
+s, n = re.subn(r'(<style name="AppTheme\.NoActionBarLaunch" parent="[^"]*">)', lambda m: m.group(1) + '\n        <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">true</item>', s)
+assert n == 1, "AppTheme.NoActionBarLaunch not found in styles.xml"
 open(p, "w", encoding="utf-8").write(s)
 print(s)
 PY

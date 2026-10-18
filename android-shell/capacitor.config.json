@@ -2,9 +2,11 @@
   "appId": "com.shajara.familytree",
   "appName": "شجرة العائلة",
   "webDir": "www",
+  "backgroundColor": "#F4EFE5",
   "android": {
     "allowMixedContent": false,
-    "webContentsDebuggingEnabled": false
+    "webContentsDebuggingEnabled": false,
+    "adjustMarginsForEdgeToEdge": "auto"
   },
   "plugins": {
     "SplashScreen": { "launchAutoHide": true }

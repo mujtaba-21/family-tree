@@ -8,3 +8,7 @@ android-shell/signing/
 __pycache__/
 *.pyc
 .DS_Store
+tests/android/out/
+tests/android/node_modules/
+tests/android/package-lock.json
+tests/android/sample137.json

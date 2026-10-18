@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "description": "Tools for the Android emulator walk-through (tests/android/e2e.mjs)",
+  "dependencies": {
+    "playwright-core": "1.56.1"
+  }
+}
