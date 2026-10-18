@@ -1,0 +1,184 @@
+10-18 14:52:05.706   524   552 I ActivityManager: Start proc 4972:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0i1 for  {com.shajara.familytree/org.chromium.content.app.SandboxedProcessService0:0}
+10-18 14:52:05.717  4916  4968 W chromium: [WARNING:dns_config_service_android.cc(115)] Failed to read DnsConfig.
+10-18 14:52:05.835  4916  4916 D Capacitor: Starting BridgeActivity
+10-18 14:52:05.844  4972  4972 I cr_WebViewApkApp: Launched version=113.0.5672.136 minSdkVersion=29 isBundle=false processName=com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0
+10-18 14:52:05.877  4916  4916 D Capacitor: Registering plugin instance: CapacitorCookies
+10-18 14:52:05.885  4916  4916 D Capacitor: Registering plugin instance: WebView
+10-18 14:52:05.889  4916  4916 D Capacitor: Registering plugin instance: CapacitorHttp
+10-18 14:52:05.895  4916  4916 D Capacitor: Registering plugin instance: App
+10-18 14:52:05.897  4916  4916 D Capacitor: Registering plugin instance: Filesystem
+10-18 14:52:05.902  4916  4916 D Capacitor: Registering plugin instance: Share
+10-18 14:52:05.958  4916  4916 W Capacitor: Unable to read file at path public/plugins
+10-18 14:52:05.966  4916  4916 D Capacitor: Loading app at https://localhost
+10-18 14:52:06.036  4916  4916 D Capacitor: App started
+10-18 14:52:06.059  4916  4916 D Capacitor/AppPlugin: Firing change: true
+10-18 14:52:06.060  4916  4916 V Capacitor/AppPlugin: Notifying listeners for event appStateChange
+10-18 14:52:06.060  4916  4916 D Capacitor/AppPlugin: No listeners found for event appStateChange
+10-18 14:52:06.060  4916  4916 D Capacitor: App resumed
+10-18 14:52:06.088  4916  4970 D Capacitor: Handling local request: https://localhost/
+10-18 14:52:06.483  4916  4968 D Capacitor: Handling local request: https://localhost/fonts/thmanyahsans-Medium.woff2
+10-18 14:52:06.531  4916  4969 D Capacitor: Handling local request: https://localhost/fonts/thmanyahserifdisplay-Bold.woff2
+10-18 14:52:06.541  4916  4970 D Capacitor: Handling local request: https://localhost/css/app.css
+10-18 14:52:06.552  4916  4974 D Capacitor: Handling local request: https://localhost/vendor/jszip.min.js
+10-18 14:52:07.258  4916  4968 D Capacitor: Handling local request: https://localhost/js/app.js
+10-18 14:52:07.267  4916  4968 D Capacitor: Handling local request: https://localhost/js/store.js
+10-18 14:52:07.269  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/kit.js
+10-18 14:52:07.273  4916  4968 D Capacitor: Handling local request: https://localhost/js/platform.js
+10-18 14:52:07.279  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/families.js
+10-18 14:52:07.286  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/newFamily.js
+10-18 14:52:07.289  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/person.js
+10-18 14:52:07.295  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/addKids.js
+10-18 14:52:07.300  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/addSpouse.js
+10-18 14:52:07.304  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/edit.js
+10-18 14:52:07.308  4916  4969 D Capacitor: Handling local request: https://localhost/js/ui/search.js
+10-18 14:52:07.311  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/settings.js
+10-18 14:52:07.317  4916  4969 D Capacitor: Handling local request: https://localhost/js/ui/tree.js
+10-18 14:52:07.327  4916  4969 D Capacitor: Handling local request: https://localhost/js/tree/measure.js
+10-18 14:52:07.354  4916  4968 D Capacitor: Handling local request: https://localhost/js/db.js
+10-18 14:52:07.360  4916  4968 D Capacitor: Handling local request: https://localhost/js/model.js
+10-18 14:52:07.367  4916  4968 D Capacitor: Handling local request: https://localhost/js/util.js
+10-18 14:52:07.370  4916  4968 D Capacitor: Handling local request: https://localhost/js/names.js
+10-18 14:52:07.379  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/help.js
+10-18 14:52:07.387  4916  4968 D Capacitor: Handling local request: https://localhost/js/export/backup.js
+10-18 14:52:07.391  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/forms.js
+10-18 14:52:07.395  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/common.js
+10-18 14:52:07.402  4916  4968 D Capacitor: Handling local request: https://localhost/js/dates.js
+10-18 14:52:07.404  4916  4969 D Capacitor: Handling local request: https://localhost/js/version.js
+10-18 14:52:07.410  4916  4969 D Capacitor: Handling local request: https://localhost/js/tree/layout.js
+10-18 14:52:07.414  4916  4968 D Capacitor: Handling local request: https://localhost/js/tree/render.js
+10-18 14:52:07.417  4916  4969 D Capacitor: Handling local request: https://localhost/js/export/pdf.js
+10-18 14:52:07.419  4916  4969 D Capacitor: Handling local request: https://localhost/js/export/pptx.js
+10-18 14:52:07.513  4916  4968 D Capacitor: Handling local request: https://localhost/icons/icon-192.png
+10-18 14:52:07.547  4916  4968 D Capacitor: Handling local request: https://localhost/fonts/thmanyahsans-Regular.woff2
+10-18 14:52:07.550  4916  4968 D Capacitor: Handling local request: https://localhost/fonts/thmanyahsans-Bold.woff2
+10-18 14:52:07.734  4916  4916 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 82891009, pluginId: App, methodName: addListener
+10-18 14:52:07.734  4916  4916 V Capacitor: callback: 82891009, pluginId: App, methodName: addListener, methodData: {"eventName":"backButton"}
+10-18 14:52:11.065  4916  4968 D Capacitor: Handling local request: https://localhost/icons/icon-192.png
+10-18 14:52:11.201  4916  4916 W InputMethodManager: Ignoring showSoftInput() as view=com.getcapacitor.CapacitorWebView{af4ae36 VFEDHVC.. .F...... 0,0-1080,2209 #7f0800bf app:id/webview} is not served.
+10-18 14:52:11.421  4469  5233 I cr_CronetUrlRequestContext: destroyNativeStreamLocked org.chromium.net.impl.CronetBidirectionalStream@8b92a5c
+10-18 14:52:12.156  4916  4916 W InputMethodManager: Ignoring showSoftInput() as view=com.getcapacitor.CapacitorWebView{af4ae36 VFEDHVC.. .F...... 0,0-1080,2209 #7f0800bf app:id/webview aid=1073741824} is not served.
+10-18 14:52:13.126  4916  4969 D Capacitor: Handling local request: https://localhost/icons/icon-192.png
+10-18 14:52:14.505  4916  4916 V Capacitor/AppPlugin: Notifying listeners for event pause
+10-18 14:52:14.505  4916  4916 D Capacitor/AppPlugin: No listeners found for event pause
+10-18 14:52:14.506  4916  4916 D Capacitor: App paused
+10-18 14:52:14.528  4916  4916 D Capacitor/AppPlugin: Firing change: false
+10-18 14:52:14.534  4916  4916 V Capacitor/AppPlugin: Notifying listeners for event appStateChange
+10-18 14:52:14.534  4916  4916 D Capacitor/AppPlugin: No listeners found for event appStateChange
+10-18 14:52:14.534  4916  4916 D Capacitor: App stopped
+10-18 14:52:14.535  4916  4916 D Capacitor: Saving instance state!
+10-18 14:52:14.584  4916  4916 D Capacitor: App destroyed
+10-18 14:52:14.764  4916  4916 D Capacitor: Starting BridgeActivity
+10-18 14:52:14.767  4916  4916 D Capacitor: Registering plugin instance: CapacitorCookies
+10-18 14:52:14.772  4916  4916 D Capacitor: Registering plugin instance: WebView
+10-18 14:52:14.783  4916  4916 D Capacitor: Registering plugin instance: CapacitorHttp
+10-18 14:52:14.790  4916  4916 D Capacitor: Registering plugin instance: App
+10-18 14:52:14.799  4916  4916 D Capacitor: Registering plugin instance: Filesystem
+10-18 14:52:14.801  4916  4916 D Capacitor: Registering plugin instance: Share
+10-18 14:52:14.900  4916  4916 W Capacitor: Unable to read file at path public/plugins
+10-18 14:52:14.909  4916  4916 D Capacitor: Loading app at https://localhost
+10-18 14:52:14.950  4916  4916 D Capacitor: App started
+10-18 14:52:14.956  4916  4916 D Capacitor/AppPlugin: Firing change: true
+10-18 14:52:14.956  4916  4916 V Capacitor/AppPlugin: Notifying listeners for event appStateChange
+10-18 14:52:14.957  4916  4916 D Capacitor/AppPlugin: No listeners found for event appStateChange
+10-18 14:52:14.957  4916  4916 D Capacitor: App resumed
+10-18 14:52:14.991  4916  4968 D Capacitor: Handling local request: https://localhost/
+10-18 14:52:15.045  4916  4916 W cr_AwContents: 	at org.chromium.android_webview.AwContents.m(chromium-TrichromeWebViewGoogle6432.apk-stable-567263637:10)
+10-18 14:52:15.045  4916  4916 W cr_AwContents: 	at org.chromium.android_webview.AwContents.h(chromium-TrichromeWebViewGoogle6432.apk-stable-567263637:2)
+10-18 14:52:15.045  4916  4916 W cr_AwContents: 	at com.android.webview.chromium.WebViewChromium.evaluateJavaScript(chromium-TrichromeWebViewGoogle6432.apk-stable-567263637:37)
+10-18 14:52:15.256  4916  4968 D Capacitor: Handling local request: https://localhost/fonts/thmanyahsans-Medium.woff2
+10-18 14:52:15.270  4916  4968 D Capacitor: Handling local request: https://localhost/fonts/thmanyahserifdisplay-Bold.woff2
+10-18 14:52:15.278  4916  4968 D Capacitor: Handling local request: https://localhost/css/app.css
+10-18 14:52:15.315  4916  4968 D Capacitor: Handling local request: https://localhost/vendor/jszip.min.js
+10-18 14:52:15.425  4916  4968 D Capacitor: Handling local request: https://localhost/js/app.js
+10-18 14:52:15.433  4916  4968 D Capacitor: Handling local request: https://localhost/js/store.js
+10-18 14:52:15.436  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/kit.js
+10-18 14:52:15.441  4916  4968 D Capacitor: Handling local request: https://localhost/js/platform.js
+10-18 14:52:15.446  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/families.js
+10-18 14:52:15.448  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/newFamily.js
+10-18 14:52:15.453  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/person.js
+10-18 14:52:15.456  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/addKids.js
+10-18 14:52:15.459  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/addSpouse.js
+10-18 14:52:15.466  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/edit.js
+10-18 14:52:15.469  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/search.js
+10-18 14:52:15.475  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/settings.js
+10-18 14:52:15.479  4916  4969 D Capacitor: Handling local request: https://localhost/js/ui/tree.js
+10-18 14:52:15.483  4916  4968 D Capacitor: Handling local request: https://localhost/js/tree/measure.js
+10-18 14:52:15.543  4916  4968 D Capacitor: Handling local request: https://localhost/js/db.js
+10-18 14:52:15.554  4916  4968 D Capacitor: Handling local request: https://localhost/js/model.js
+10-18 14:52:15.557  4916  4968 D Capacitor: Handling local request: https://localhost/js/util.js
+10-18 14:52:15.568  4916  4968 D Capacitor: Handling local request: https://localhost/js/names.js
+10-18 14:52:15.591  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/help.js
+10-18 14:52:15.598  4916  4968 D Capacitor: Handling local request: https://localhost/js/export/backup.js
+10-18 14:52:15.605  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/forms.js
+10-18 14:52:15.609  4916  4968 D Capacitor: Handling local request: https://localhost/js/ui/common.js
+10-18 14:52:15.613  4916  4968 D Capacitor: Handling local request: https://localhost/js/dates.js
+10-18 14:52:15.618  4916  4968 D Capacitor: Handling local request: https://localhost/js/version.js
+10-18 14:52:15.623  4916  4968 D Capacitor: Handling local request: https://localhost/js/tree/layout.js
+10-18 14:52:15.628  4916  4968 D Capacitor: Handling local request: https://localhost/js/tree/render.js
+10-18 14:52:15.631  4916  4968 D Capacitor: Handling local request: https://localhost/js/export/pdf.js
+10-18 14:52:15.638  4916  4969 D Capacitor: Handling local request: https://localhost/js/export/pptx.js
+10-18 14:52:15.747  4916  4968 D Capacitor: Handling local request: https://localhost/icons/icon-192.png
+10-18 14:52:15.771  4916  4968 D Capacitor: Handling local request: https://localhost/fonts/thmanyahsans-Regular.woff2
+10-18 14:52:15.786  4916  4968 D Capacitor: Handling local request: https://localhost/fonts/thmanyahsans-Bold.woff2
+10-18 14:52:15.837  4916  4916 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 91145098, pluginId: App, methodName: addListener
+10-18 14:52:15.837  4916  4916 V Capacitor: callback: 91145098, pluginId: App, methodName: addListener, methodData: {"eventName":"backButton"}
+10-18 14:52:22.777  4972  4972 I AndroidRuntime: VM exiting with result code 0, cleanup skipped.
+10-18 14:52:22.860   524  2515 I ActivityManager: Killing 4972:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0a193i1 (adj 0): isolated not needed
+10-18 14:52:26.177   524   552 I ActivityManager: Start proc 5753:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0i2 for  {com.shajara.familytree/org.chromium.content.app.SandboxedProcessService0:0}
+10-18 14:52:26.392  5724  5756 W chromium: [WARNING:dns_config_service_android.cc(115)] Failed to read DnsConfig.
+10-18 14:52:26.405  5753  5753 I cr_WebViewApkApp: Launched version=113.0.5672.136 minSdkVersion=29 isBundle=false processName=com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0
+10-18 14:52:26.417  5724  5756 E chromium: [ERROR:simple_version_upgrade.cc(152)] Failed to write a new fake index.
+10-18 14:52:26.425  5724  5778 E chromium: [ERROR:simple_file_enumerator.cc(21)] opendir /data/user/0/com.shajara.familytree/cache/WebView/Default/HTTP Cache/Code Cache/js: No such file or directory (2)
+10-18 14:52:26.425  5724  5778 E chromium: [ERROR:simple_index_file.cc(614)] Could not reconstruct index from disk
+10-18 14:52:26.630  5724  5724 D Capacitor: Starting BridgeActivity
+10-18 14:52:26.657  5724  5724 D Capacitor: Registering plugin instance: CapacitorCookies
+10-18 14:52:26.663  5724  5724 D Capacitor: Registering plugin instance: WebView
+10-18 14:52:26.667  5724  5724 D Capacitor: Registering plugin instance: CapacitorHttp
+10-18 14:52:26.671  5724  5724 D Capacitor: Registering plugin instance: App
+10-18 14:52:26.674  5724  5724 D Capacitor: Registering plugin instance: Filesystem
+10-18 14:52:26.680  5724  5724 D Capacitor: Registering plugin instance: Share
+10-18 14:52:26.730  5724  5724 W Capacitor: Unable to read file at path public/plugins
+10-18 14:52:26.735  5724  5724 D Capacitor: Loading app at https://localhost
+10-18 14:52:26.772  5724  5724 D Capacitor: App started
+10-18 14:52:26.784  5724  5724 D Capacitor/AppPlugin: Firing change: true
+10-18 14:52:26.784  5724  5724 V Capacitor/AppPlugin: Notifying listeners for event appStateChange
+10-18 14:52:26.784  5724  5724 D Capacitor/AppPlugin: No listeners found for event appStateChange
+10-18 14:52:26.785  5724  5724 D Capacitor: App resumed
+10-18 14:52:26.862  5724  5756 D Capacitor: Handling local request: https://localhost/
+10-18 14:52:27.362  5724  5776 D Capacitor: Handling local request: https://localhost/fonts/thmanyahsans-Medium.woff2
+10-18 14:52:27.379  5724  5777 D Capacitor: Handling local request: https://localhost/fonts/thmanyahserifdisplay-Bold.woff2
+10-18 14:52:27.389  5724  5778 D Capacitor: Handling local request: https://localhost/css/app.css
+10-18 14:52:27.558  5724  5756 D Capacitor: Handling local request: https://localhost/vendor/jszip.min.js
+10-18 14:52:28.305  5724  5755 D Capacitor: Handling local request: https://localhost/js/app.js
+10-18 14:52:28.352  5724  5755 D Capacitor: Handling local request: https://localhost/js/store.js
+10-18 14:52:28.354  5724  5756 D Capacitor: Handling local request: https://localhost/js/ui/kit.js
+10-18 14:52:28.365  5724  5776 D Capacitor: Handling local request: https://localhost/js/platform.js
+10-18 14:52:28.377  5724  5759 D Capacitor: Handling local request: https://localhost/js/ui/families.js
+10-18 14:52:28.387  5724  5755 D Capacitor: Handling local request: https://localhost/js/ui/newFamily.js
+10-18 14:52:28.402  5724  5756 D Capacitor: Handling local request: https://localhost/js/ui/person.js
+10-18 14:52:28.405  5724  5776 D Capacitor: Handling local request: https://localhost/js/ui/addKids.js
+10-18 14:52:28.410  5724  5759 D Capacitor: Handling local request: https://localhost/js/ui/addSpouse.js
+10-18 14:52:28.412  5724  5777 D Capacitor: Handling local request: https://localhost/js/ui/search.js
+10-18 14:52:28.418  5724  5778 D Capacitor: Handling local request: https://localhost/js/ui/settings.js
+10-18 14:52:28.420  5724  5778 D Capacitor: Handling local request: https://localhost/js/ui/tree.js
+10-18 14:52:28.421  5724  5777 D Capacitor: Handling local request: https://localhost/js/tree/measure.js
+10-18 14:52:28.434  5724  5756 D Capacitor: Handling local request: https://localhost/js/ui/edit.js
+10-18 14:52:28.447  5724  5755 D Capacitor: Handling local request: https://localhost/js/db.js
+10-18 14:52:28.474  5724  5755 D Capacitor: Handling local request: https://localhost/js/model.js
+10-18 14:52:28.484  5724  5756 D Capacitor: Handling local request: https://localhost/js/util.js
+10-18 14:52:28.484  5724  5759 D Capacitor: Handling local request: https://localhost/js/names.js
+10-18 14:52:28.543  5724  5755 D Capacitor: Handling local request: https://localhost/js/ui/help.js
+10-18 14:52:28.546  5724  5755 D Capacitor: Handling local request: https://localhost/js/export/backup.js
+10-18 14:52:28.548  5724  5755 D Capacitor: Handling local request: https://localhost/js/ui/forms.js
+10-18 14:52:28.551  5724  5755 D Capacitor: Handling local request: https://localhost/js/ui/common.js
+10-18 14:52:28.553  5724  5755 D Capacitor: Handling local request: https://localhost/js/dates.js
+10-18 14:52:28.575  5724  5756 D Capacitor: Handling local request: https://localhost/js/version.js
+10-18 14:52:28.579  5724  5776 D Capacitor: Handling local request: https://localhost/js/export/pdf.js
+10-18 14:52:28.579  5724  5777 D Capacitor: Handling local request: https://localhost/js/tree/render.js
+10-18 14:52:28.584  5724  5778 D Capacitor: Handling local request: https://localhost/js/tree/layout.js
+10-18 14:52:28.601  5724  5759 D Capacitor: Handling local request: https://localhost/js/export/pptx.js
+10-18 14:52:29.238  5724  5755 D Capacitor: Handling local request: https://localhost/icons/icon-192.png
+10-18 14:52:29.372  5724  5755 D Capacitor: Handling local request: https://localhost/fonts/thmanyahsans-Regular.woff2
+10-18 14:52:29.373  5724  5755 D Capacitor: Handling local request: https://localhost/fonts/thmanyahsans-Bold.woff2
+10-18 14:52:29.471  5724  5724 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 129837706, pluginId: App, methodName: addListener
+10-18 14:52:29.472  5724  5724 V Capacitor: callback: 129837706, pluginId: App, methodName: addListener, methodData: {"eventName":"backButton"}

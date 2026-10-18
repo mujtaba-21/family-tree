@@ -1,0 +1,12 @@
+10-18 14:51:40.667  3931  3931 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-18 14:51:40.676  3931  3931 I AndroidRuntime: Using default boot image
+10-18 14:51:40.676  3931  3931 I AndroidRuntime: Leaving lock profiling enabled
+10-18 14:51:41.045  3931  3931 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+10-18 14:51:41.222  3931  3931 D AndroidRuntime: Calling main entry com.android.commands.monkey.Monkey
+10-18 14:51:42.167  3931  3931 I AndroidRuntime: VM exiting with result code 0.
+10-18 14:51:43.937  3986  4114 W chromium: [WARNING:dns_config_service_android.cc(115)] Failed to read DnsConfig.
+10-18 14:51:44.107   524   552 I ActivityManager: Start proc 4130:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0ai9000 for  {com.shajara.familytree/org.chromium.content.app.SandboxedProcessService0:0}
+10-18 14:51:44.446  3986  3986 D Capacitor: Starting BridgeActivity
+10-18 14:51:44.659   524   552 I ActivityManager: Start proc 4175:com.google.android.webview:webview_apk/u0a134 for service {com.google.android.webview/org.chromium.android_webview.nonembedded.AwComponentUpdateService}
+10-18 14:51:45.390  4130  4130 I cr_WebViewApkApp: Launched version=113.0.5672.136 minSdkVersion=29 isBundle=false processName=com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0
+10-18 14:51:45.997  4175  4230 W cr_AWNetworkFetcherTask: 	at org.chromium.android_webview.nonembedded.NetworkFetcherTask.download(chromium-TrichromeWebViewGoogle6432.apk-stable-567263637:48)

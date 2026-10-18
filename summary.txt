@@ -1,0 +1,18 @@
+device: sdk_gphone64_x86_64, Android 14 (API 34)
+OK    app opens — {"native":true,"viewport":"412x842@2.625","safe":"0px/0px","chrome":"113.0.5672.136","font":true,"compressionStream":"function"} (6.4s)
+OK    create a family — #/f/20a2872212614e43/p/454a5a255a9c4b2c (4.1s)
+FAIL  add three children at once — page.click: Target page, context or browser has been closed | Call log: |   - waiting for locator('a[href$=\'/kids/new\']') | 
+FAIL  tree; Back closes a sheet and stays on the screen — page.click: Target page, context or browser has been closed
+FAIL  PDF → save on the phone — page.click: Target page, context or browser has been closed
+NOTE  PowerPoint → Android share sheet — page.click: Target page, context or browser has been closed
+FAIL  Back walks back to the family list — page.evaluate: Target page, context or browser has been closed
+FAIL  backup → save on the phone, and it counts as backed up — page.click: Target page, context or browser has been closed
+NOTE  import the backup with the system file picker — page.evaluate: Target page, context or browser has been closed
+FAIL  import a 137-person family — page.evaluate: Target page, context or browser has been closed
+FAIL  big tree: view, then PDF with dates → save — page.click: Target page, context or browser has been closed
+NOTE  add a photo (file chooser) — page.evaluate: Target page, context or browser has been closed
+NOTE  pick a photo with the system picker — page.evaluate: Target page, context or browser has been closed
+FAIL  Back on the family list closes the app — page.evaluate: Target page, context or browser has been closed
+FAIL  reopen: everything is still there — only 1 families after reopening
+saved files: ERR ls: /sdcard/Documents/شجرة العائلة/: No such file or directory
+9 step(s) failed, 4 note(s)
