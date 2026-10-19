@@ -70,8 +70,9 @@ function upOf(hash) {
   return "#/";
 }
 
-async function render(hash = nav.currentHash()) {
+async function render(hash = nav.currentHash(), { keepScroll = false } = {}) {
   const seq = ++renderSeq;
+  const y = window.scrollY;
   closeAllOverlays();
   for (const [re, handler] of routes) {
     const m = hash.match(re);
@@ -81,13 +82,13 @@ async function render(hash = nav.currentHash()) {
     catch (e) { console.error(e); toast("حدث خطأ غير متوقع"); node = null; }
     if (seq !== renderSeq || !node) return;
     app.replaceChildren(node);
-    window.scrollTo(0, 0);
+    window.scrollTo(0, keepScroll ? y : 0);
     return;
   }
   nav.redirect("#/");
 }
-/** Redraws the current screen (after a change made on it). */
-function rerender() { return render(nav.currentHash()); }
+/** Redraws the current screen after a change made on it, staying where the reader was. */
+function rerender() { return render(nav.currentHash(), { keepScroll: true }); }
 
 async function boot() {
   applyTheme();

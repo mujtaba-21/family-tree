@@ -1,0 +1,42 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><link rel="stylesheet" href="../../web/css/app.css">
+<style>body{background:#ddd;padding:10px} .case{margin:10px;display:inline-block;vertical-align:top} .case h4{font:14px TS;margin:4px} svg{display:block;background:#fff}</style></head><body>
+<div id="out"></div>
+<script type="module">
+import * as M from "../../web/js/model.js";
+import { layoutTree } from "../../web/js/tree/layout.js";
+import { toSVG } from "../../web/js/tree/render.js";
+import { THEMES } from "../../web/js/tree/themes.js";
+import { measure, fontsReady } from "../../web/js/tree/measure.js";
+await fontsReady();
+const params = new URLSearchParams(location.search);
+const f = M.createFamily({ familyName: "آل المشرف", root: { name: "حسين", gender: "m", fam: "المشرف", deceased: true } });
+const w = M.addSpouse(f, f.rootId, { name: "زينب", fam: "العلي", deceased: true });
+const kids = M.addChildren(f, w.id, [{ name: "محمد", gender: "m" }, { name: "فاطمة", gender: "f" }, { name: "عبدالله", gender: "m" }, { name: "مريم", gender: "f" }, { name: "كاظم", gender: "m" }]);
+const names = [["علي", "m"], ["حسن", "m"], ["زهراء", "f"], ["سارة", "f"], ["جعفر", "m"]];
+kids.forEach((k, i) => {
+  if (i === 1 || i === 3) { const u = M.addSpouse(f, k, { name: i === 1 ? "صالح" : "يوسف", fam: "الحربي", deceased: i === 1 }); M.addChildren(f, u.id, names.slice(0, 3 - (i % 2)).map(([n, g]) => ({ name: n, gender: g }))); return; }
+  const u = M.addSpouse(f, k, { name: ["نورة", "", "ليلى", "", "هدى"][i], fam: "السعد" });
+  M.addChildren(f, u.id, names.slice(i % 3, (i % 3) + 3).map(([n, g]) => ({ name: n, gender: g })));
+});
+f.persons[kids[2]].deceased = true; f.persons[kids[3]].deceased = true;
+// a photo for some
+const cv = document.createElement("canvas"); cv.width = cv.height = 64; const c = cv.getContext("2d");
+const g = c.createLinearGradient(0, 0, 64, 64); g.addColorStop(0, "#b8a48c"); g.addColorStop(1, "#6e5a44"); c.fillStyle = g; c.fillRect(0, 0, 64, 64);
+c.fillStyle = "#e9dccb"; c.beginPath(); c.arc(32, 26, 12, 0, 7); c.fill(); c.fillRect(14, 42, 36, 22);
+const url = cv.toDataURL();
+for (const id of [f.rootId, kids[2], kids[3], kids[0]]) f.persons[id].mainPhoto = "ph" + id;
+const scale = +(params.get("scale") || 2.4);
+const themes = (params.get("themes") || Object.keys(THEMES).join(",")).split(",");
+const mark = params.get("mark") || "rahma";
+const photo = params.get("photo") === "1";
+const title = params.has("notitle") ? "" : "شجرة آل المشرف";
+for (const th of themes) {
+  const sc = layoutTree(f, { theme: th, title, deathMark: mark, fields: { photo, birth: false, death: false, note: false }, layout: params.get("layout") || "vertical" }, measure);
+  const div = document.createElement("div"); div.className = "case";
+  div.innerHTML = `<h4>${th} ${Math.round(sc.bbox.w)}×${Math.round(sc.bbox.h)}mm</h4>` + toSVG(sc, { photoURL: () => url });
+  const svg = div.querySelector("svg");
+  svg.setAttribute("width", sc.bbox.w * scale); svg.setAttribute("height", sc.bbox.h * scale);
+  document.getElementById("out").appendChild(div);
+}
+document.title = "done";
+</script></body></html>

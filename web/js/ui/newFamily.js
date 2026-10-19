@@ -38,7 +38,7 @@ export function newFamilyScreen() {
     h("main", { class: "body" },
       h("div", { class: "sec-t" }, h("span", { class: "row", style: { gap: "6px" } }, "الجد الجامع", help("root"))),
       form.node,
-      h("div", { class: "opt-sec" }, h("span", null, "العائلة")),
+      h("div", { class: "sec-line" }, h("span", null, "العائلة")),
       field("اسم العائلة في القائمة", title, { helpKey: "familyTitle" }),
       h("div", { class: "spacer" }),
       create,

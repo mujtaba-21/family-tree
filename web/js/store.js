@@ -1,12 +1,13 @@
 // App state: the open family, settings, photos. Saves automatically.
 import * as db from "./db.js";
 import * as M from "./model.js";
+import * as P from "./progress.js";
 import { debounce } from "./util.js";
 import { loadGenderMemory } from "./names.js";
 
 export const state = {
   family: null,       // the open family (in memory)
-  settings: { calendar: "h", reminderDays: 30, cousinStyle: "ref", appearance: "auto", bin: false },
+  settings: { calendar: "h", reminderDays: 30, cousinStyle: "ref", appearance: "light", bin: false },
   lastPerson: {},     // familyId -> last visited person id
 };
 
@@ -15,6 +16,13 @@ export async function init() {
   await loadGenderMemory();
   const s = await db.getMeta("settings");
   if (s) Object.assign(state.settings, s);
+  // until now "follow the phone" was the default and was saved with the other settings even when
+  // nobody chose it; the app now opens light unless dark or "follow the phone" is chosen again
+  if (!state.settings.appearanceSet) {
+    if (s && s.appearance === "auto") state.settings.appearance = "light";
+    state.settings.appearanceSet = true;
+    if (s) await db.setMeta("settings", state.settings);
+  }
   M.setNameOptions({ bin: !!state.settings.bin });
   state.lastPerson = (await db.getMeta("lastPerson")) || {};
 }
@@ -28,6 +36,7 @@ export async function familySummaries() {
   return all
     .map((f) => ({
       id: f.id, name: f.name, count: Object.values(f.persons).filter((p) => !p.blank).length,
+      progress: P.summary(f),
       updated: f.updated, created: f.created, lastExport: exports[f.id] || 0,
     }))
     .sort((a, b) => b.updated - a.updated);

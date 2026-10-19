@@ -97,6 +97,7 @@ export function personForm({ f, pid = null, role, gender = "m", onChange = () =>
       `ويظهر في الشجرة: ${tree || (data.unknownName ? "خانة بلا اسم" : "—")}`);
     const auto = live ? M.kunya(f, pid) : "";
     nick.placeholder = auto ? `تلقائيًا: ${auto}` : "مثل: أبو محمد، أو لقب اشتهر به";
+    drawOptTitle();
   };
 
   // ---------------------------------------------------------------- optional part
@@ -154,14 +155,41 @@ export function personForm({ f, pid = null, role, gender = "m", onChange = () =>
       drawThumbs();
     } }, icon("camera")));
     thumbs.replaceChildren(...items);
+    drawOptTitle();
   };
-  drawThumbs();
 
   const bio = h("textarea", { class: "inp", placeholder: data.gender === "f" ? "ما تعرفه عنها: أخبارها، أين عاشت…" : "ما تعرفه عنه: عمله، أخباره، أين عاش…" }, data.bio || "");
   bio.addEventListener("input", () => set({ bio: bio.value }));
   const note = h("input", { class: "inp", name: "note", value: data.note || "", placeholder: "مثل: تاجر", maxlength: 28 });
   note.addEventListener("input", () => set({ note: note.value }));
 
+  // the optional part is folded at first; its title lists what is already filled in it
+  const optWhat = h("span", { class: "opt-what" });
+  const optHead = h("button", { class: "opt-sec", type: "button", "aria-expanded": "false" },
+    h("span", { class: "opt-name" }, "اختياري"), optWhat, icon("down"));
+  function drawOptTitle() {
+    const l = [];
+    if (data.nick) l.push("الكنية");
+    if (data.birth && data.birth.y) l.push("الميلاد");
+    if ((data.death && data.death.y) || data.deceased) l.push("الوفاة");
+    if (live ? (data.photos || []).length : pending.length) l.push("الصور");
+    if (data.bio && data.bio.trim()) l.push("السيرة");
+    if (data.note && data.note.trim()) l.push("الملاحظة");
+    optWhat.className = "opt-what" + (l.length ? " filled" : "");
+    optWhat.textContent = l.length ? l.join("، ") : "الكنية، التواريخ، الصور، السيرة";
+  }
+  const optBody = h("div", { class: "opt-body" }, h("div", { class: "opt-inner" },
+    field("الكنية أو اللقب", nick, { helpKey: "nick" }),
+    h("div", { class: "toggle-row" }, h("span", { class: "l" }, "اعرض الكنية بدل الاسم", help("useNick")), useNick),
+    field("الميلاد", birthIn),
+    field("الوفاة", deathIn),
+    h("div", { class: "toggle-row" }, h("span", { class: "l" }, data.gender === "f" ? "متوفاة" : "متوفى", rahma, help("deceased")), deceasedSw),
+    field("الصور", thumbs, { helpKey: "photos" }),
+    field("السيرة", bio),
+    field("ملاحظة الشجرة، سطر قصير", note, { helpKey: "treeNote" })));
+  optBody.inert = true;
+
+  drawThumbs();
   refresh();
 
   const node = h("div", { class: "pform" },
@@ -171,16 +199,19 @@ export function personForm({ f, pid = null, role, gender = "m", onChange = () =>
     typed ? field("اسم العائلة", fam, { helpKey: "familyName" }) : null,
     genderSeg ? field("الجنس", genderSeg) : null,
     typed || !live ? preview : null,
-    h("div", { class: "opt-sec" }, h("span", null, "اختياري")),
-    field("الكنية أو اللقب", nick, { helpKey: "nick" }),
-    h("div", { class: "toggle-row" }, h("span", { class: "l" }, "اعرض الكنية بدل الاسم", help("useNick")), useNick),
-    field("الميلاد", birthIn),
-    field("الوفاة", deathIn),
-    h("div", { class: "toggle-row" }, h("span", { class: "l" }, data.gender === "f" ? "متوفاة" : "متوفى", rahma, help("deceased")), deceasedSw),
-    field("الصور", thumbs, { helpKey: "photos" }),
-    field("السيرة", bio),
-    field("ملاحظة الشجرة، سطر قصير", note, { helpKey: "treeNote" }),
+    optHead,
+    optBody,
   );
+  optHead.addEventListener("click", () => {
+    const on = !node.classList.contains("opt-open");
+    node.classList.toggle("opt-open", on);
+    optHead.setAttribute("aria-expanded", String(on));
+    optBody.inert = !on;
+    if (!on) optBody.classList.remove("done");
+    if (on) setTimeout(() => optHead.scrollIntoView({ block: "start", behavior: "smooth" }), 60);
+  });
+  // once open, nothing inside is clipped (focus rings, the chosen photo's frame)
+  optBody.addEventListener("transitionend", () => { if (node.classList.contains("opt-open")) optBody.classList.add("done"); });
 
   return {
     node,

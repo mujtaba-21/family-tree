@@ -8,24 +8,28 @@
 import * as M from "../model.js";
 import * as D from "../dates.js";
 import { ar } from "../util.js";
-import { themeOf, decorate, setTitleLength } from "./themes.js";
+import { themeOf, decorate, plainTitle } from "./themes.js";
 
 export const DEFAULT_OPTS = {
   fontMM: 3.5,              // ~10pt
-  fields: { photo: false, birth: false, death: false, rahma: true, note: false },
+  fields: { photo: false, birth: false, death: false, note: false },
+  deathMark: "rahma",       // "rahma" (رحمه الله under the name) | "ribbon" (black corner ribbon) | "none"
   genderStyle: true,
   siblingOrder: "age",      // "age" | "gender"
   cousinStyle: "ref",       // "ref" | "line"
   calendar: "h",
   layout: "balanced",       // "balanced" | "vertical" | "flex"
   theme: "calm",            // see tree/themes.js
-  title: "",                // shown by the decorated designs
+  title: "",                // the title at the top ("" = none)
 };
 export const LAYOUTS = ["balanced", "vertical", "flex"];
+export const DEATH_MARKS = ["rahma", "ribbon", "none"];
 
-// "balanced": rows are kept while the drawing is no wider than this many times its height,
-// or no wider than this many millimetres (at the default text size).
-const WIDE_RATIO = 4.5, WIDE_ABS = 500;
+// "balanced": generations stay in rows while the drawing is no wider than this many times its height
+const WIDE_RATIO = 4.5;
+// the middle of Arabic letters sits about this far (× font size) above the baseline
+const MID = 0.25;
+const isDead = (p) => !!(p && !p.blank && (p.deceased || (p.death && p.death.y)));
 
 function datesText(p, cal, fields) {
   const b = fields.birth && p.birth && p.birth.y ? D.yearLabel(p.birth, cal) : "";
@@ -57,7 +61,7 @@ export function layoutTree(f, options, measure) {
   // ---- which optional text lines exist anywhere (boxes share one height)
   const people = Object.values(P).filter((p) => !p.blank);
   const hasDates = people.some((p) => (opts.fields.birth && p.birth && p.birth.y) || (opts.fields.death && p.death && p.death.y));
-  const hasRahma = opts.fields.rahma && people.some((p) => p.deceased || (p.death && p.death.y));
+  const hasRahma = opts.deathMark === "rahma" && people.some(isDead);
   const hasNote = opts.fields.note && people.some((p) => p.note);
   const smallFS = FS * 0.78;
   const lineSpecs = [{ role: "name", lh: FS * 1.32 }];
@@ -91,23 +95,26 @@ export function layoutTree(f, options, measure) {
       const nameFS = root ? FS * 1.12 : FS;
       lines.push({ t: M.shortName(f, pid), fs: nameFS, wt: root ? 700 : 500, role: "name" });
       if (hasDates) lines.push({ t: datesText(p, opts.calendar, opts.fields), fs: smallFS, wt: 400, role: "dates" });
-      if (hasRahma) lines.push({ t: p.deceased || (p.death && p.death.y) ? (p.gender === "f" ? "رحمها الله" : "رحمه الله") : "", fs: smallFS * 0.96, wt: 700, role: "rahma" });
+      if (hasRahma) lines.push({ t: isDead(p) ? (p.gender === "f" ? "رحمها الله" : "رحمه الله") : "", fs: smallFS * 0.96, wt: 700, role: "rahma" });
       if (hasNote) { let t = p.note || ""; if (t.length > 26) t = t.slice(0, 25) + "…"; lines.push({ t, fs: smallFS, wt: 400, role: "note" }); }
       let tw = 0;
       for (const l of lines) if (l.t) tw = Math.max(tw, measure(l.t, l.wt) * l.fs);
       const photo = opts.fields.photo && p.mainPhoto ? p.mainPhoto : null;
       const pad = photo ? photoSize + 1.4 * k : 0;
-      s = { w: Math.max(MINW, tw + 2 * PADX + pad + (root ? 2 * k : 0)), lines, photo, pad };
+      s = { w: Math.max(MINW, tw + 2 * PADX + pad + (root ? 2 * k : 0)), lines, photo, pad, dead: isDead(p) };
     }
-    // vertical text positions (baselines) inside a box of height BH
-    let y = (BH - (style === "ref" || s.lines.length <= 1 ? lineSpecs[0].lh : blockH)) / 2;
+    // vertical text positions (baselines): the lines that have text are centred together in the box,
+    // so a name alone sits in the middle even when other boxes have a second line
+    const slot = (l) => (lineSpecs.find((x) => x.role === l.role) || lineSpecs[0]).lh;
+    const shown = s.lines.filter((l) => l.t);
+    let y = (BH - shown.reduce((a, l) => a + slot(l), 0)) / 2;
     s.lines = s.lines.map((l) => {
-      const ls = lineSpecs.find((x) => x.role === l.role) || lineSpecs[0];
-      const out = { ...l, base: y + ls.lh * 0.74 };
-      y += ls.lh;
+      if (!l.t) return { ...l, base: 0 };
+      const lh = slot(l);
+      const out = { ...l, base: y + lh / 2 + MID * l.fs };
+      y += lh;
       return out;
     });
-    if (style === "ref" || s.lines.length === 1) s.lines.forEach((l) => { l.base = BH / 2 + l.fs * 0.36; });
     specCache.set(key, s);
     return s;
   }
@@ -146,7 +153,7 @@ export function layoutTree(f, options, measure) {
   function newScene() { return { boxes: [], lines: [], marr: [], pos: new Map() }; }
   function addBox(S, pid, style, x, y, extra) {
     const sp = spec(pid, style);
-    S.boxes.push({ pid, style, g: P[pid].gender, x, y, w: sp.w, h: BH, lines: sp.lines, photo: sp.photo, pad: sp.pad, ...extra });
+    S.boxes.push({ pid, style, g: P[pid].gender, x, y, w: sp.w, h: BH, lines: sp.lines, photo: sp.photo, pad: sp.pad, dead: !!sp.dead, ...extra });
     if (style !== "ref" && style !== "sp" && M.isDesc(f, pid)) S.pos.set(pid, { x, y, w: sp.w, h: BH });
   }
   const path = (S, pts, marriage) => (marriage ? S.marr : S.lines).push(pts);
@@ -382,7 +389,7 @@ export function layoutTree(f, options, measure) {
   const build = (L) => { const sc = finish(buildTD(L)); sc.L = L; return sc; };
   let sc;
   if (opts.forceL) sc = build(opts.forceL);
-  else if (opts.layout === "vertical") sc = build(allRows);
+  else if (opts.layout === "vertical" || allRows <= 2) sc = build(allRows); // two generations: always rows
   else if (opts.layout === "flex") {
     // the switch generation whose drawing is closest to √2 proportions
     for (let L = 1; L <= Math.max(1, maxGen); L++) {
@@ -395,23 +402,21 @@ export function layoutTree(f, options, measure) {
     // balanced, decided on plain name boxes (see below)
     for (let L = allRows; L >= 1; L--) {
       sc = build(L);
-      if (sc.bbox.w <= WIDE_RATIO * sc.bbox.h || sc.bbox.w <= WIDE_ABS * k) break;
+      if (sc.bbox.w <= WIDE_RATIO * sc.bbox.h) break;
     }
     return sc;
   } else {
     // balanced: as many generations in rows as the width allows. The choice is made on plain name
     // boxes at the default size, so showing dates or photos, or a bigger font, never changes the shape.
     const probe = layoutTree(f, { ...DEFAULT_OPTS, siblingOrder: opts.siblingOrder, genderStyle: opts.genderStyle,
-      fields: { photo: false, birth: false, death: false, rahma: false, note: false }, _probe: true }, measure);
+      fields: { photo: false, birth: false, death: false, note: false }, deathMark: "none", _probe: true }, measure);
     sc = build(probe.L);
   }
   sc.treeBox = { ...sc.bbox };
-  // decorated designs: a frame and a title around the drawing
-  if (theme.deco) {
-    const title = opts.title || "";
-    setTitleLength(title ? measure(title, 700, "TD") : 2);
-    sc.deco = decorate(theme, sc.bbox, title);
-    sc.bbox = { ...sc.deco.bbox };
-  }
+  // the title (a heading for plain designs; inside the decoration for decorated ones)
+  const title = (opts.title || "").trim();
+  const em = title ? measure(title, 700, "TD") : 0;
+  sc.deco = theme.deco ? decorate(theme, sc.bbox, title, em) : plainTitle(theme, sc.bbox, title, em);
+  if (sc.deco) sc.bbox = { ...sc.deco.bbox };
   return sc;
 }

@@ -1,7 +1,8 @@
 // Family data model: people, marriages (unions) and every rule about them.
 // A family: {format, version, id, name, rootId, created, updated, seq, persons:{}, unions:{}}
 // A person: {id, name, unknownName, gender, nick, useNick, ancestors[], fam, birth, death, deceased,
-//            photos[], mainPhoto, bio, note, blank}
+//            photos[], mainPhoto, bio, note, blank, noKids}
+// noKids: marked «ما له أبناء», so the app stops suggesting to add their children (cleared when some are added).
 // nick: the kunya or title typed by the user; when empty, a kunya is derived from the children.
 // A union:  {id, h (husband id|null), w (wife id|null), kids[] (eldest first), order}
 import { uid } from "./util.js";
@@ -278,8 +279,18 @@ export function addChildren(f, unionId, rows) {
     rememberGender(name, p.gender);
     ids.push(p.id);
   }
+  if (ids.length) for (const pid of [u.h, u.w]) if (pid && f.persons[pid]) delete f.persons[pid].noKids;
   touch(f);
   return ids;
+}
+
+/** «ما له أبناء»: stop suggesting to add this member's children (or take the mark back). */
+export function setNoKids(f, id, on) {
+  const p = f.persons[id];
+  if (!p) return;
+  if (on) p.noKids = true;
+  else delete p.noKids;
+  touch(f);
 }
 
 /**

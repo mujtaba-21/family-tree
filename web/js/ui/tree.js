@@ -2,14 +2,16 @@
 // What is shown is exactly what gets exported: one set of options serves both.
 import { h, icon, ar, todayISO } from "../util.js";
 import { appBar, sheet, help, toggle, segmented, busy, toast, alertMsg } from "./kit.js";
-import { layoutTree, DEFAULT_OPTS, LAYOUTS } from "../tree/layout.js";
+import { layoutTree, DEFAULT_OPTS, LAYOUTS, DEATH_MARKS } from "../tree/layout.js";
 import { THEMES, PLAIN, DECORATED } from "../tree/themes.js";
 import { toSVG } from "../tree/render.js";
 import { measure, fontsReady } from "../tree/measure.js";
 import { treeToPDF } from "../export/pdf.js";
 import { treeToPPTX } from "../export/pptx.js";
 import { deliverFile } from "../platform.js";
+import { exportBackup } from "../export/backup.js";
 import { personHash, displayName } from "./common.js";
+import { familySheet, spouseWord } from "./familySheet.js";
 import * as nav from "../nav.js";
 import * as store from "../store.js";
 import * as M from "../model.js";
@@ -27,10 +29,16 @@ function treeOpts() {
   const s = store.state.settings;
   const saved = s.export || {};
   const o = { ...DEFAULT_OPTS, ...saved, fields: { ...DEFAULT_OPTS.fields, ...(saved.fields || {}) }, calendar: s.calendar, format: saved.format || "pdf" };
+  // «رحمه الله» used to be a switch among the box fields; it is now one of the death marks
+  if (!DEATH_MARKS.includes(o.deathMark)) o.deathMark = saved.fields && saved.fields.rahma === false ? "none" : "rahma";
+  delete o.fields.rahma;
   if (!LAYOUTS.includes(o.layout)) o.layout = DEFAULT_OPTS.layout;
   if (!THEMES[o.theme]) o.theme = DEFAULT_OPTS.theme;
   return o;
 }
+/** The title at the top of the tree: saved with the family, «شجرة آل …» unless changed, or none. */
+export const defaultTitle = (f) => `شجرة ${f.name}`;
+export const treeTitle = (f) => (f.hideTitle ? "" : (f.treeTitle || defaultTitle(f)).trim());
 function saveTreeOpts(o) {
   const { calendar, title, ...rest } = o;
   store.state.settings.export = rest;
@@ -68,7 +76,7 @@ function swatch(id, on, onPick) {
 export async function treeScreen(f, focusId) {
   await fontsReady();
   const opts = treeOpts();
-  opts.title = `شجرة ${f.name}`;
+  opts.title = treeTitle(f);
   let scene = null;
   let photos = { urls: new Map(), bitmaps: new Map(), blobs: new Map() };
 
@@ -83,7 +91,7 @@ export async function treeScreen(f, focusId) {
   const draw = async (keepView) => {
     scene = layoutTree(f, opts, measure);
     if (opts.fields.photo) photos = await photoMaps(f, scene);
-    stage.innerHTML = toSVG(scene, { photoURL: (id) => photos.urls.get(id), highlight: focusId, interactive: true });
+    stage.innerHTML = toSVG(scene, { photoURL: (id) => photos.urls.get(id), interactive: true });
     const svg = stage.firstChild;
     svgW = scene.bbox.w * PX_PER_MM; svgH = scene.bbox.h * PX_PER_MM;
     svg.setAttribute("width", svgW); svg.setAttribute("height", svgH);
@@ -113,23 +121,27 @@ export async function treeScreen(f, focusId) {
     apply();
   };
 
-  // ---- tapping a person: open the card, or add a spouse / children right from the tree
+  // ---- tapping a person: open the card, or add a spouse and children right from the tree
   function personActions(pid) {
     const p = f.persons[pid];
     if (!p) return;
     const k = M.kind(f, pid);
-    const base = personHash(f, pid);
+    const fem = p.gender === "f";
+    const redraw = () => draw(true);
     sheet((close) => {
-      const go = (hash) => async () => { await close(); nav.go(hash); };
-      const btn = (label, hash, cls = "soft", ic = "plus") => h("button", { class: "btn " + cls, type: "button", onclick: go(hash) }, icon(ic), label);
-      const items = [btn("فتح البطاقة", base, "primary", "person")];
+      const act = (label, fn, cls = "soft", ic = "plus") => h("button", { class: "btn " + cls, type: "button", onclick: async () => { await close(); fn(); } }, icon(ic), label);
+      const items = [act("فتح البطاقة", () => nav.go(personHash(f, pid)), "primary", "person")];
       if (k !== "blank") {
-        if (k !== "spouse") items.push(btn(p.gender === "f" ? "إضافة زوج" : "إضافة زوجة", `${base}/spouse`));
-        const unions = M.unionsOf(f, pid);
-        if (!unions.length && k !== "spouse") items.push(btn("إضافة أبناء", `${base}/kids/new`));
+        const unions = [...M.unionsOf(f, pid)].sort((a, b) => (M.spouseIn(a, pid) ? 0 : 1) - (M.spouseIn(b, pid) ? 0 : 1) || a.order - b.order);
         for (const u of unions) {
           const o = M.spouseIn(u, pid);
-          items.push(btn(o && unions.length > 1 ? `إضافة أبناء من ${displayName(f, o)}` : "إضافة أبناء", `${base}/kids/${u.id}`));
+          const label = unions.length < 2 ? "إضافة أبناء"
+            : o && f.persons[o] ? `إضافة أبناء من ${spouseWord(f, o, pid)}` : fem ? "أبناء لم يُسجَّل أبوهم" : "أبناء لم تُسجَّل أمهم";
+          items.push(act(label, () => familySheet(f, pid, { unionId: u.id, onSaved: redraw })));
+        }
+        if (k !== "spouse") {
+          const married = unions.some((u) => M.spouseIn(u, pid));
+          items.push(act(married ? "زواج آخر" : fem ? "زوج وأبناء" : "زوجة وأبناء", () => familySheet(f, pid, { onSaved: redraw })));
         }
       }
       return h("div", { class: "acts" },
@@ -233,14 +245,34 @@ export async function treeScreen(f, focusId) {
         return row;
       };
       setTimeout(refit, 260); // once the sheet has slid in
+      // the title: saved with the family (so it travels with its backups)
+      const titleIn = h("input", { class: "inp", name: "treeTitle", value: f.treeTitle || "", placeholder: defaultTitle(f), maxlength: 60, autocomplete: "off", enterkeyhint: "done" });
+      titleIn.disabled = !!f.hideTitle;
+      let typing = null;
+      titleIn.addEventListener("input", () => {
+        clearTimeout(typing);
+        typing = setTimeout(() => change(() => { f.treeTitle = titleIn.value.trim(); store.changed(); opts.title = treeTitle(f); }), 350);
+      });
+      titleIn.addEventListener("keydown", (e) => { if (e.key === "Enter") titleIn.blur(); });
+      const titleSw = toggle(!f.hideTitle, (v) => change(() => {
+        f.hideTitle = !v;
+        titleIn.disabled = !v;
+        store.changed();
+        opts.title = treeTitle(f);
+      }));
       return h("div", { class: "design-body" },
         h("h3", null, "تصميم الشجرة"),
         h("div", null, h("div", { class: "opt-t" }, "طريقة الترتيب", help("treeLayout")),
           segmented(LAYOUT_LABELS, opts.layout, (v) => change(() => { opts.layout = v; }), { cls: "bigseg" })),
         h("div", null, h("div", { class: "opt-t" }, "الألوان"), themesRow(PLAIN)),
-        h("div", null, h("div", { class: "opt-t" }, "تصاميم مزخرفة (تجريبية)", help("decorated")), themesRow(DECORATED)),
+        h("div", null, h("div", { class: "opt-t" }, "تصاميم مزخرفة", help("decorated")), themesRow(DECORATED)),
+        h("div", { class: "title-opt" },
+          h("div", { class: "toggle-row" }, h("span", { class: "l" }, "العنوان", help("treeTitle")), titleSw),
+          titleIn),
         h("div", null, h("div", { class: "opt-t" }, "ما يظهر في كل خانة"),
-          h("div", { class: "row" }, h("span", { class: "tog on locked" }, "✓ الاسم"), tog("photo", "الصورة"), tog("birth", "الميلاد"), tog("death", "الوفاة"), tog("rahma", "رحمه الله"), tog("note", "الملاحظة"), help("treeNote"))),
+          h("div", { class: "row" }, h("span", { class: "tog on locked" }, "✓ الاسم"), tog("photo", "الصورة"), tog("birth", "الميلاد"), tog("death", "الوفاة"), tog("note", "الملاحظة"), help("treeNote"))),
+        h("div", null, h("div", { class: "opt-t" }, "علامة الوفاة", help("deathMark")),
+          segmented([{ value: "rahma", label: "رحمه الله" }, { value: "ribbon", label: "شريط أسود" }, { value: "none", label: "بدون" }], opts.deathMark, (v) => change(() => { opts.deathMark = v; }), { cls: "bigseg" })),
         h("div", { class: "toggle-row" }, h("span", { class: "l" }, "تمييز الذكور والإناث", help("genderStyle")), toggle(opts.genderStyle, (v) => change(() => { opts.genderStyle = v; }))),
         h("div", null, h("div", { class: "opt-t" }, "ترتيب الإخوة", help("siblingOrder")),
           segmented([{ value: "age", label: "حسب العمر" }, { value: "gender", label: "الذكور ثم الإناث" }], opts.siblingOrder, (v) => change(() => { opts.siblingOrder = v; }), { cls: "bigseg" })),
@@ -253,19 +285,26 @@ export async function treeScreen(f, focusId) {
     }, { light: true, cls: "design", onClose: () => { coveredBottom = 0; fit(); } });
   }
 
-  // ---------------------------------------------------------------- export (the tree as shown)
+  // ---------------------------------------------------------------- export: the tree as shown, or the data
   function exportSheet() {
     sheet((close) => {
       const info = h("div", { class: "hint", style: { padding: 0 } }, sizeText());
-      const go = h("button", { class: "btn primary", type: "button" }, "تصدير");
+      const go = h("button", { class: "btn primary", type: "button" }, icon("download"), "تصدير الشجرة");
       go.addEventListener("click", async () => { await close(); await doExport(); });
-      return h("div", { style: { display: "flex", flexDirection: "column", gap: "14px" } },
-        h("h3", null, "تصدير الشجرة"),
-        h("div", { class: "hint", style: { padding: 0 } }, "تُصدَّر كما تظهر الآن. لتغيير شكلها وألوانها استخدم «التصميم»."),
-        h("div", null, h("div", { class: "opt-t" }, "الصيغة", help("format")),
-          segmented([{ value: "pdf", label: "PDF للطباعة" }, { value: "pptx", label: "PowerPoint للتعديل" }], opts.format, (v) => { opts.format = v; saveTreeOpts(opts); info.textContent = sizeText(); }, { cls: "bigseg" })),
-        info,
-        go,
+      const data = h("button", { class: "btn soft", type: "button" }, icon("download"), "تصدير البيانات");
+      data.addEventListener("click", async () => { await close(); await exportBackup(f.id); });
+      return h("div", { class: "export-body" },
+        h("section", { class: "ex-part" },
+          h("h3", null, "الشجرة"),
+          h("div", { class: "hint", style: { padding: 0 } }, "تُصدَّر كما تظهر الآن. لتغيير شكلها وألوانها استخدم «التصميم»."),
+          h("div", null, h("div", { class: "opt-t" }, "الصيغة", help("format")),
+            segmented([{ value: "pdf", label: "PDF للطباعة" }, { value: "pptx", label: "PowerPoint للتعديل" }], opts.format, (v) => { opts.format = v; saveTreeOpts(opts); info.textContent = sizeText(); }, { cls: "bigseg" })),
+          info,
+          go),
+        h("section", { class: "ex-part" },
+          h("h3", { class: "row", style: { gap: "8px" } }, "البيانات", help("exportData")),
+          h("div", { class: "hint", style: { padding: 0 } }, "نسخة احتياطية فيها كل بيانات العائلة وصورها، تفتحها في هذا التطبيق على أي جهاز."),
+          data),
       );
     });
   }
@@ -277,14 +316,15 @@ export async function treeScreen(f, focusId) {
       const sc = layoutTree(f, opts, measure);
       const ph = opts.fields.photo ? await photoMaps(f, sc) : photos;
       const base = `شجرة-${f.name.replace(/\s+/g, "-")}-${todayISO()}`;
+      const docTitle = opts.title || defaultTitle(f);
       if (opts.format === "pptx") {
         b.set("جارٍ إنشاء ملف PowerPoint…");
-        const { blob, scaled } = await treeToPPTX(sc, { photos: ph.blobs, title: opts.title });
+        const { blob, scaled } = await treeToPPTX(sc, { photos: ph.blobs, title: docTitle });
         b.done();
         if (scaled < 1) toast("صُغّرت الشجرة لتناسب أقصى حجم لشريحة PowerPoint", 4000);
         await deliverFile(blob, base + ".pptx", { title: "ملف PowerPoint جاهز", what: "الملف" });
       } else {
-        const { blob } = await treeToPDF(sc, { images: ph.bitmaps, title: opts.title, onProgress: (x) => b.set(`جارٍ رسم الشجرة… ${ar(Math.round(x * 100))}٪`) });
+        const { blob } = await treeToPDF(sc, { images: ph.bitmaps, title: docTitle, onProgress: (x) => b.set(`جارٍ رسم الشجرة… ${ar(Math.round(x * 100))}٪`) });
         b.done();
         await deliverFile(blob, base + ".pdf", { title: "ملف PDF جاهز", what: "الملف" });
       }

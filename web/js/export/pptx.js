@@ -1,6 +1,6 @@
 // Tree -> PowerPoint (one slide, editable shapes). PowerPoint slides are at most 56 inches wide,
 // so a larger tree is scaled down to fit.
-import { boxColors, textColor, decoImage } from "../tree/render.js";
+import { boxColors, textColor, decoImage, ribbonOf, RIBBON } from "../tree/render.js";
 
 const MAX_IN = 56;
 let loading = null;
@@ -46,9 +46,12 @@ export async function treeToPPTX(scene, { photos, title = "شجرة العائل
   const { genderStyle } = scene.opts;
   // decorated designs: background, frame and ornaments as one picture behind the tree; the title stays text
   if (scene.deco) {
-    const data = await blobToDataURL(await decoImage(scene));
-    slide.addImage({ data, x: 0, y: 0, w: W * s, h: H * s });
-    for (const t of scene.deco.texts) {
+    const D = scene.deco;
+    if (D.paper || D.under.length || D.over.length) {
+      const data = await blobToDataURL(await decoImage(scene));
+      slide.addImage({ data, x: 0, y: 0, w: W * s, h: H * s });
+    }
+    for (const t of D.texts) {
       const tw = t.fs * Math.max(4, t.t.length * 0.62);
       slide.addText(t.t, {
         x: ix(t.x - tw / 2), y: iy(t.y - t.fs * 1.05), w: tw * s, h: t.fs * 1.5 * s,
@@ -118,6 +121,17 @@ export async function treeToPPTX(scene, { photos, title = "شجرة العائل
       const size = b.h - 1.6 * k;
       const data = await blobToDataURL(photos.get(b.photo));
       slide.addImage({ data, x: ix(b.x + b.w - 0.8 * k - size), y: iy(b.y + 0.8 * k), w: size * s, h: size * s, rounding: round });
+    }
+    // the black ribbon of a deceased person: a free-form shape over the box's (or photo's) corner
+    const rb = ribbonOf(scene, b);
+    if (rb) {
+      const xs = rb.map((q) => q[0]), ys = rb.map((q) => q[1]);
+      const x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs), y1 = Math.max(...ys);
+      slide.addShape(pptx.ShapeType.custGeom, {
+        x: ix(x0), y: iy(y0), w: Math.max(0.001, (x1 - x0) * s), h: Math.max(0.001, (y1 - y0) * s),
+        fill: { color: hex(RIBBON) }, line: { color: hex(RIBBON), width: 0.1 },
+        points: [...rb.map((q, i) => ({ x: (q[0] - x0) * s, y: (q[1] - y0) * s, ...(i ? {} : { moveTo: true }) })), { close: true }],
+      });
     }
   }
   const blob = await pptx.write({ outputType: "blob", compression: true });

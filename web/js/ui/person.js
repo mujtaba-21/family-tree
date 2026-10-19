@@ -2,6 +2,9 @@
 import { h, icon, ar } from "../util.js";
 import { appBar, screen, sheet, help, menu, confirm, toast } from "./kit.js";
 import { chip, photoBox, miniPhoto, dateLines, rahmaText, isDeceased, personHash, displayName } from "./common.js";
+import { familySheet } from "./familySheet.js";
+import { sortableRow } from "./sortable.js";
+import { nextBar } from "./nextBar.js";
 import * as nav from "../nav.js";
 import * as M from "../model.js";
 import * as store from "../store.js";
@@ -92,11 +95,11 @@ function orderSheet(f, u, onChange) {
     const row = (k, i) => {
       const el = h("div", { class: "order-row" },
         h("span", { class: "grip", "aria-hidden": "true" }, "⠿"),
-        h("span", { class: "n" }, `${ar(i + 1)}. ${M.headName(f, k) || "—"}`),
+        h("span", { class: "n" }, `${ar(i + 1)}. ${displayName(f, k)}`),
         h("button", { class: "ib solid", "aria-label": "تقديم", disabled: i === 0, onclick: () => moveTo(i, i - 1) }, icon("up")),
         h("button", { class: "ib solid", "aria-label": "تأخير", disabled: i === u.kids.length - 1, onclick: () => moveTo(i, i + 1) }, icon("down")),
       );
-      dragRow(el, i, list, moveTo);
+      sortableRow(el, list, moveTo);
       return el;
     };
     const draw = () => list.replaceChildren(...u.kids.map(row));
@@ -109,79 +112,90 @@ function orderSheet(f, u, onChange) {
   });
 }
 
-/** Press and hold anywhere on a row (not on its arrows), then drag it up or down. */
-function dragRow(el, index, list, moveTo) {
-  let timer = null, dragging = false, startY = 0, pointerId = null, rows = [], rowH = 0, target = index;
-  const stopTimer = () => { clearTimeout(timer); timer = null; };
-  const begin = () => {
-    dragging = true;
-    try { el.setPointerCapture(pointerId); } catch (e) { /* pointer already gone */ }
-    rows = [...list.children];
-    rowH = el.getBoundingClientRect().height;
-    el.classList.add("dragging");
-    list.classList.add("sorting");
-    if (navigator.vibrate) navigator.vibrate(12);
-  };
-  el.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0 || e.target.closest("button")) return;
-    startY = e.clientY; pointerId = e.pointerId; target = index;
-    timer = setTimeout(begin, 260);
-  });
-  el.addEventListener("pointermove", (e) => {
-    if (e.pointerId !== pointerId) return;
-    if (!dragging) { if (Math.abs(e.clientY - startY) > 8) stopTimer(); return; }
-    e.preventDefault();
-    const dy = Math.max(-index * rowH - rowH / 2, Math.min((rows.length - 1 - index) * rowH + rowH / 2, e.clientY - startY));
-    el.style.transform = `translateY(${dy}px)`;
-    target = Math.max(0, Math.min(rows.length - 1, index + Math.round(dy / rowH)));
-    rows.forEach((r, j) => {
-      if (j === index) return;
-      let shift = 0;
-      if (index < target && j > index && j <= target) shift = -rowH;
-      if (index > target && j < index && j >= target) shift = rowH;
-      r.style.transform = shift ? `translateY(${shift}px)` : "";
-    });
-  });
-  const end = () => {
-    stopTimer();
-    pointerId = null;
-    if (!dragging) return;
-    dragging = false;
-    list.classList.remove("sorting");
-    rows.forEach((r) => { r.style.transform = ""; });
-    el.classList.remove("dragging");
-    moveTo(index, target);
-  };
-  el.addEventListener("pointerup", end);
-  el.addEventListener("pointercancel", end);
-  el.addEventListener("touchmove", (e) => { if (dragging) e.preventDefault(); }, { passive: false });
-  el.addEventListener("contextmenu", (e) => e.preventDefault());
-}
+// The child whose own family is unfolded on the card (one at a time), remembered while the app is open.
+const openKid = new Map(); // familyId -> person id
 
-/** "+" next to a child: add a spouse, or children (to a chosen marriage). */
-function addFor(anchor, f, pid) {
-  const p = f.persons[pid];
-  const fem = p.gender === "f";
-  const base = personHash(f, pid);
-  const items = [{ label: fem ? "زوج" : "زوجة", icon: "plus", onclick: () => nav.go(`${base}/spouse`) }];
-  const unions = M.unionsOf(f, pid);
-  if (!unions.length) items.push({ label: "أبناء", icon: "plus", onclick: () => nav.go(`${base}/kids/new`) });
+const marriagesFirst = (f, pid) => [...M.unionsOf(f, pid)].sort((a, b) => (M.spouseIn(a, pid) ? 0 : 1) - (M.spouseIn(b, pid) ? 0 : 1) || a.order - b.order);
+
+/** A child's own family, shown when its row is unfolded: each marriage with its children, and "+" buttons. */
+function kidFamily(f, k, refresh) {
+  const p = f.persons[k], fem = p.gender === "f";
+  const unions = marriagesFirst(f, k);
+  const out = [];
   for (const u of unions) {
-    const o = M.spouseIn(u, pid);
-    const label = o ? `أبناء من ${M.headName(f, o) || (fem ? "زوجها" : "زوجته")}` : "أبناء";
-    items.push({ label, icon: "plus", onclick: () => nav.go(`${base}/kids/${u.id}`) });
+    const o = M.spouseIn(u, k);
+    const head = o && f.persons[o]
+      ? [h("span", { class: "kf-l" }, fem ? "زوجها" : "زوجته"), chip(f, o)]
+      : [h("span", { class: "kf-none" }, fem ? "أبناء لم يُسجَّل أبوهم" : "أبناء لم تُسجَّل أمهم")];
+    const addK = h("button", { class: "mini-add", type: "button", onclick: () => familySheet(f, k, { unionId: u.id, onSaved: refresh }) }, icon("plus"), "أبناء");
+    out.push(h("div", { class: "kf-u" },
+      h("div", { class: "kf-sp" }, ...head),
+      h("div", { class: "kf-kids" }, ...u.kids.map((c) => chip(f, c)), addK)));
   }
-  menu(anchor, items);
+  const married = unions.some((u) => M.spouseIn(u, k));
+  out.push(h("button", { class: "mini-add", type: "button", onclick: () => familySheet(f, k, { onSaved: refresh }) },
+    icon("plus"), married ? "زواج آخر" : fem ? "زوج وأبناء" : "زوجة وأبناء"));
+  return h("div", { class: "kf" }, ...out);
 }
 
-function kidRow(f, k) {
+/** «زوجته فاطمة»، «زوجتاه فاطمة وزينب»، «أزواجها …» */
+function spouseLine(f, k, spouses) {
+  if (!spouses.length) return "";
+  const fem = f.persons[k].gender === "f";
+  const n = spouses.length;
+  const word = fem ? (n === 1 ? "زوجها" : n === 2 ? "زوجاها" : "أزواجها") : (n === 1 ? "زوجته" : n === 2 ? "زوجتاه" : "زوجاته");
+  return `${word} ${joinAnd(spouses.map((s) => displayName(f, s)))}`;
+}
+
+/** A child on the card: the name (opens its card), its spouse, and a fold that shows its own family.
+ *  With no marriage yet there is nothing to unfold: «+» (or a tap on the row) opens the family sheet. */
+function kidRow(f, k, refresh) {
   const p = f.persons[k];
-  const row = h("div", { class: "kid-row" }, chip(f, k));
-  if (p && !p.blank) {
-    const plus = h("button", { class: "kid-add", type: "button", "aria-label": `إضافة زوج أو أبناء لـ${M.headName(f, k) || "هذا الشخص"}` }, icon("plus"));
-    plus.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); addFor(plus, f, k); });
-    row.appendChild(plus);
+  if (!p) return null;
+  const row = h("div", { class: "kid" });
+  if (p.blank) { row.append(h("div", { class: "kid-line" }, chip(f, k))); return row; }
+  const unions = M.unionsOf(f, k);
+  const count = unions.reduce((a, u) => a + u.kids.length, 0);
+  const spouses = unions.map((u) => M.spouseIn(u, k)).filter((x) => x && f.persons[x]);
+  const sub = [spouseLine(f, k, spouses), p.noKids && !count ? (p.gender === "f" ? "ليس لها أبناء" : "ليس له أبناء") : ""].filter(Boolean).join("، ");
+  const fem = p.gender === "f";
+
+  if (!unions.length) {
+    const add = h("button", { class: "kid-pill add", type: "button", "aria-label": `${fem ? "زوج وأبناء" : "زوجة وأبناء"} لـ${displayName(f, k)}` }, icon("plus"));
+    const line = h("div", { class: "kid-line" }, chip(f, k), h("span", { class: "kid-sub" }, sub), add);
+    line.addEventListener("click", (e) => {
+      if (e.target.closest && e.target.closest("a.chip")) return;
+      familySheet(f, k, { onSaved: () => { openKid.set(f.id, k); refresh(); } });
+    });
+    row.append(line);
+    return row;
   }
+
+  const isOpen = () => openKid.get(f.id) === k;
+  const pill = h("button", { class: "kid-pill", type: "button", "aria-expanded": String(isOpen()), "aria-label": `أسرة ${displayName(f, k)}` },
+    count ? h("span", null, ar(count)) : null, icon("down"));
+  const line = h("div", { class: "kid-line" }, chip(f, k), h("span", { class: "kid-sub" }, sub), pill);
+  const body = h("div", { class: "kid-body" }, h("div", { class: "kid-inner" }, kidFamily(f, k, refresh)));
+  row.append(line, body);
+  const setOpen = (on) => {
+    row.classList.toggle("open", on);
+    pill.setAttribute("aria-expanded", String(on));
+    body.inert = !on;
+  };
+  line.addEventListener("click", (e) => {
+    if (e.target.closest && e.target.closest("a.chip")) return; // the name opens the child's card
+    const on = !isOpen();
+    if (on) openKid.set(f.id, k); else openKid.delete(f.id);
+    for (const other of document.querySelectorAll(".kid.open")) if (other !== row) {
+      other.classList.remove("open");
+      const b = other.querySelector(".kid-body");
+      if (b) b.inert = true;
+      const pl = other.querySelector(".kid-pill");
+      if (pl) pl.setAttribute("aria-expanded", "false");
+    }
+    setOpen(on);
+  });
+  setOpen(isOpen());
   return row;
 }
 
@@ -196,7 +210,7 @@ function unionCard(f, pid, u, rerender) {
     const head = displayName(f, other);
     header = h("a", { class: "spouse-h", href: personHash(f, other) },
       miniPhoto(f, other),
-      h("div", { class: "n" }, head, full ? h("small", null, full) : null),
+      h("div", { class: "n" }, head, full && full !== head ? h("small", null, full) : null),
       h("span", { class: "tag" + (fromFamily ? "" : " out") }, fromFamily ? "من العائلة" : "من خارج العائلة"));
   } else {
     header = h("div", { class: "spouse-h" },
@@ -204,9 +218,12 @@ function unionCard(f, pid, u, rerender) {
       h("div", { class: "n" }, p.gender === "m" ? "أبناء لم تُحدَّد أمهم" : "أبناء لم يُحدَّد أبوهم", h("small", null, "تستطيع تحديد ذلك عند الإضافة")),
       help("unknownParent"));
   }
-  const addKids = h("a", { class: "addkids", href: `${personHash(f, pid)}/kids/${u.id}` }, icon("plus"), "أبناء");
+  const addKids = h("button", { class: "addkids", type: "button", onclick: () => familySheet(f, pid, { unionId: u.id, onSaved: rerender }) }, icon("plus"), "أبناء");
   const kidsBox = h("div", { class: "kids" });
-  const drawKids = () => kidsBox.replaceChildren(...u.kids.map((k) => kidRow(f, k)), h("div", null, addKids));
+  const drawKids = () => {
+    const rows = u.kids.map((k) => kidRow(f, k, rerender)).filter(Boolean);
+    kidsBox.replaceChildren(...(rows.length ? [h("div", { class: "kid-list" }, ...rows)] : []), h("div", { class: "kids-add" }, addKids));
+  };
   drawKids();
   const moreBtn = h("button", { class: "ib", "aria-label": "خيارات", style: { width: "36px", height: "36px" } }, icon("more"));
   const hasOptions = u.kids.length > 1 || (!u.kids.length && other);
@@ -252,7 +269,8 @@ function crumbs(f, pid) {
     items.push(i === chain.length - 1 ? h("b", { class: "cur" }, label) : h("a", { href: personHash(f, id) }, label));
   });
   const bar = h("nav", { class: "crumbs", "aria-label": "موقعه في العائلة" }, ...items);
-  requestAnimationFrame(() => { const last = bar.lastChild; if (last && last.scrollIntoView) last.scrollIntoView({ block: "nearest", inline: "end" }); });
+  // show the end of the path (this person) without moving the page itself
+  requestAnimationFrame(() => { bar.scrollLeft = -bar.scrollWidth; });
   return bar;
 }
 
@@ -315,16 +333,22 @@ export function personScreen(f, pid, rerender) {
       h("div", { style: { display: "flex", flexDirection: "column", gap: "10px" } }, ...unions.map((u) => unionCard(f, pid, u, rerender)))));
   } else {
     const title = !marriages ? "الأبناء" : fem ? (marriages > 1 ? "الأزواج والأبناء" : "الزوج والأبناء") : (marriages > 1 ? "الزوجات والأبناء" : "الزوجة والأبناء");
-    const addSpouse = h("a", { class: "btn ghost", href: `${personHash(f, pid)}/spouse` }, icon("plus"), fem ? "زوج" : "زوجة");
     const body = [];
     if (unions.length) body.push(...unions.map((u) => unionCard(f, pid, u, rerender)));
-    const btns = [addSpouse];
-    if (!unions.length) btns.push(h("a", { class: "btn ghost", href: `${personHash(f, pid)}/kids/new` }, icon("plus"), "أبناء"));
+    const addFamily = h("button", { class: "btn ghost", type: "button", onclick: () => familySheet(f, pid, { onSaved: rerender }) },
+      icon("plus"), marriages ? "زواج آخر" : fem ? "زوج وأبناء" : "زوجة وأبناء");
     if (k === "blank") {
       // an empty slot keeps its children, nothing new is added to it
-    } else body.push(h("div", { class: "btn-row" }, ...btns));
+    } else {
+      if (p.noKids && !unions.some((u) => u.kids.length)) {
+        const undo = h("button", { class: "linkbtn", type: "button" }, "تراجع");
+        undo.addEventListener("click", () => { M.setNoKids(f, pid, false); store.changed(); rerender(); });
+        body.push(h("div", { class: "nokids" }, fem ? "مسجَّل أنها ليس لها أبناء." : "مسجَّل أنه ليس له أبناء.", undo));
+      }
+      body.push(addFamily);
+    }
     if (!unions.length && k === "root") {
-      body.unshift(h("div", { class: "tip" }, "ابدأ بإضافة زوجة الجد ثم أبنائه منها. وإن لم تعرف زوجته فأضف أبناءه مباشرة، وتحدد أمهم لاحقًا."));
+      body.unshift(h("div", { class: "tip" }, "اضغط «زوجة وأبناء» وأضف زوجة الجد وأبناءه منها مرة واحدة. وإن لم تعرف اسمها اختر «اسمها غير معروف»."));
     }
     if (unions.length || k !== "blank") sections.push(h("section", null, unions.length ? h("div", { class: "sec-t" }, h("span", null, title), marriages > 1 ? h("span", null, ar(marriages)) : null) : null,
       h("div", { style: { display: "flex", flexDirection: "column", gap: "10px" } }, ...body)));
@@ -333,12 +357,15 @@ export function personScreen(f, pid, rerender) {
   return screen(
     appBar({
       title: f.name, back: true,
+      // the family's name opens the common ancestor's card; the house goes to the family list
+      titleAction: pid !== f.rootId ? { label: `بطاقة ${displayName(f, f.rootId)}، الجد الجامع`, onclick: () => nav.go(personHash(f, f.rootId)) } : null,
       actions: [
         { icon: "search", label: "بحث", onclick: () => nav.go(`#/f/${f.id}/search`) },
         { icon: "tree", label: "شجرة العائلة", onclick: () => nav.go(`#/f/${f.id}/tree/${pid}`) },
-        { icon: "home", label: "الجد الجامع", onclick: () => nav.go(personHash(f, f.rootId)) },
+        { icon: "home", label: "الصفحة الرئيسية: العائلات", onclick: () => nav.go("#/") },
       ],
     }),
     h("main", { class: "body" }, crumbs(f, pid), hero, ...sections),
+    nextBar(f, rerender),
   );
 }

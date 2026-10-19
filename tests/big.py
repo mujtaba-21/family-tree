@@ -51,7 +51,7 @@ async def main():
         await pg.get_by_role("radio", name="PDF للطباعة").click()
         t0 = time.time()
         async with pg.expect_download(timeout=180000) as dl:
-            await pg.locator(".sheet").get_by_role("button", name="تصدير").click()
+            await pg.locator(".sheet").get_by_role("button", name="تصدير الشجرة").click()
         await (await dl.value).save_as(f"{OUT}/big.pdf")
         print("pdf export:", round(time.time() - t0, 2), "s")
         await pg.wait_for_timeout(500)
@@ -60,7 +60,7 @@ async def main():
         await pg.wait_for_timeout(300)
         t0 = time.time()
         async with pg.expect_download(timeout=180000) as dl2:
-            await pg.locator(".sheet").get_by_role("button", name="تصدير").click()
+            await pg.locator(".sheet").get_by_role("button", name="تصدير الشجرة").click()
         await (await dl2.value).save_as(f"{OUT}/big.pptx")
         print("pptx export:", round(time.time() - t0, 2), "s")
         await b.close()

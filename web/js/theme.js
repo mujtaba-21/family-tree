@@ -1,11 +1,11 @@
-// App appearance: light, dark, or following the phone (the default).
+// App appearance: light (the default), dark, or following the phone — chosen in settings.
 import { state } from "./store.js";
 
 const BAR = { light: "#F4EFE5", dark: "#171411" };
 const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
 
 export function scheme() {
-  const a = (state.settings && state.settings.appearance) || "auto";
+  const a = (state.settings && state.settings.appearance) || "light";
   if (a === "light" || a === "dark") return a;
   return mq && mq.matches ? "dark" : "light";
 }

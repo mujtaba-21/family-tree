@@ -1,7 +1,7 @@
-// Screen 4: add a husband or wife — someone new from outside, or someone already in the family.
+// Screen: marry someone already in the family (e.g. a cousin), so the person is not entered twice.
+// A spouse from outside the family is added in the family sheet (familySheet.js).
 import { h, icon } from "../util.js";
-import { appBar, screen, field, help, segmented, toast, confirm, checkbox } from "./kit.js";
-import { personForm } from "./personForm.js";
+import { appBar, screen, help, toast, confirm, checkbox } from "./kit.js";
 import { personHash } from "./common.js";
 import * as nav from "../nav.js";
 import * as M from "../model.js";
@@ -10,8 +10,6 @@ import * as store from "../store.js";
 export function addSpouseScreen(f, pid) {
   const p = f.persons[pid];
   const fem = p.gender === "f";
-  const word = fem ? "زوج" : "زوجة";
-  let mode = "out";
 
   // children recorded before this spouse was known
   const unk = M.unknownSpouseUnion(f, pid, false);
@@ -21,23 +19,6 @@ export function addSpouseScreen(f, pid) {
     h("div", { class: "sec-t", style: { margin: 0 } }, h("span", { class: "row", style: { gap: "6px" } }, fem ? "من أبنائها منه؟" : "من أبنائه منها؟", help("unknownParent"))),
     h("div", { class: "row" }, ...unk.kids.map((k) => checkbox(M.headName(f, k) || "—", assign.has(k), (on) => { on ? assign.add(k) : assign.delete(k); })))) : null;
 
-  // ---- outside the family: the full form (the gender is the opposite one, no choice)
-  const form = personForm({ f, role: "spouse", gender: fem ? "m" : "f", onChange: () => { save.disabled = !form.valid(); } });
-  const save = h("button", { class: "btn primary", disabled: true }, `إضافة ال${word}`);
-  save.addEventListener("click", async () => {
-    if (!form.valid()) return;
-    save.disabled = true;
-    const u = M.addSpouse(f, pid, form.values(), [...assign]);
-    const sid = M.spouseIn(u, pid);
-    const ph = await form.savePhotos(f.id);
-    if (ph.photos.length) M.updatePerson(f, sid, ph);
-    store.changed();
-    toast(fem ? "أُضيف الزوج" : "أُضيفت الزوجة");
-    nav.finish(personHash(f, pid));
-  });
-  const outside = form.node;
-
-  // ---- someone already in the family (e.g. a cousin): no duplicate person
   const married = new Set(M.unionsOf(f, pid).map((u) => M.spouseIn(u, pid)).filter(Boolean));
   const exclude = new Set([pid, ...married]);
   const q = h("input", { placeholder: "اكتب الاسم، ثم اسم الأب إن أردت", autocomplete: "off", enterkeyhint: "search" });
@@ -48,7 +29,7 @@ export function addSpouseScreen(f, pid) {
     results.style.display = ids.length ? "" : "none";
     none.textContent = q.value.trim() && !ids.length ? "لا يوجد أحد بهذا الاسم في العائلة." : "";
     results.replaceChildren(...ids.map((id) => h("button", { class: "res", onclick: async () => {
-      const ok = await confirm({ title: `تسجيل الزواج؟`, text: `${M.quadName(f, pid)} و${M.quadName(f, id)}. يظهر كل منهما في مكانه من الشجرة دون تكرار.`, ok: "تسجيل" });
+      const ok = await confirm({ title: "تسجيل الزواج؟", text: `${M.quadName(f, pid)} و${M.quadName(f, id)}. يظهر كل منهما في مكانه من الشجرة دون تكرار.`, ok: "تسجيل" });
       if (!ok) return;
       M.addSpouse(f, pid, { existingId: id }, [...assign]);
       store.changed();
@@ -59,31 +40,17 @@ export function addSpouseScreen(f, pid) {
       h("div", { class: "t" }, h("b", null, M.quadName(f, id)), h("span", null, M.isDesc(f, id) ? "من العائلة" : "زوج أو زوجة في العائلة")))));
   };
   q.addEventListener("input", runSearch);
-  const inside = h("div", { style: { display: "flex", flexDirection: "column", gap: "12px" } },
-    h("div", { class: "sbar" }, icon("search"), q),
-    results, none,
-    h("div", { class: "hint" }, "مثلًا بنت العم: تبقى في فرع أبيها، ويُرسم الزواج بينهما دون تكرار اسمها."),
-  );
-
-  const area = h("div");
-  const footer = h("div");
-  const show = () => {
-    area.replaceChildren(mode === "out" ? outside : inside);
-    footer.replaceChildren(mode === "out" ? save : "");
-    if (mode === "in") setTimeout(() => q.focus(), 60); else form.focus();
-  };
-  show();
+  setTimeout(() => q.focus(), 80);
 
   return screen(
-    appBar({ title: `${word} ل${M.headName(f, pid) || "هذه الخانة"}`, back: true }),
+    appBar({ title: `${fem ? "زوج" : "زوجة"} من العائلة لـ${M.headName(f, pid) || "هذه الخانة"}`, back: true }),
     h("main", { class: "body" },
-      h("div", { class: "row", style: { flexWrap: "nowrap" } },
-        h("div", { style: { flex: 1 } }, segmented([{ value: "out", label: "من خارج العائلة" }, { value: "in", label: "من العائلة" }], mode, (v) => { mode = v; show(); }, { cls: "bigseg" })),
-        help("spouseSource")),
-      area,
+      h("div", { class: "hint", style: { padding: 0 } }, fem
+        ? "اختر زوجها من المسجلين في الشجرة، مثل ابن عمها. يبقى في فرع أبيه، ويُرسم الزواج بينهما دون تكرار اسمه."
+        : "اختر زوجته من المسجلات في الشجرة، مثل بنت عمه. تبقى في فرع أبيها، ويُرسم الزواج بينهما دون تكرار اسمها."),
+      h("div", { class: "sbar" }, icon("search"), q),
+      results, none,
       assignBox,
-      h("div", { class: "spacer" }),
-      footer,
     ),
   );
 }

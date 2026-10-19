@@ -3,14 +3,10 @@ import { h, icon, ar } from "../util.js";
 import { appBar, screen, menu, confirm, prompt, toast, help } from "./kit.js";
 import * as store from "../store.js";
 import { exportBackup, importBackup } from "../export/backup.js";
+import { countPeople, countGenerations, countLeft } from "../progress.js";
 import * as nav from "../nav.js";
 
-export function countPeople(n) {
-  if (n === 1) return "شخص واحد";
-  if (n === 2) return "شخصان";
-  if (n >= 3 && n <= 10) return `${ar(n)} أشخاص`;
-  return `${ar(n)} شخصًا`;
-}
+export { countPeople };
 
 export function relTime(ts) {
   const days = Math.floor((Date.now() - ts) / 86400000);
@@ -89,7 +85,9 @@ export async function familiesScreen(rerender) {
     });
     return h("a", { class: "card fam", href: `#/f/${x.id}` },
       h("div", { class: "ic" }, icon("sprout")),
-      h("div", { class: "t" }, h("b", null, x.name), h("span", null, `${countPeople(x.count)}، آخر تعديل ${relTime(x.updated)}`)),
+      h("div", { class: "t" }, h("b", null, x.name),
+        h("span", null, `${countPeople(x.count)}، ${countGenerations(x.progress.generations)}`),
+        h("span", { class: x.progress.left ? "" : "done" }, `${countLeft(x.progress.left)}، آخر تعديل ${relTime(x.updated)}`)),
       more,
     );
   });

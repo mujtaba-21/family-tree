@@ -80,21 +80,23 @@ async def main(which):
         await pg.mouse.click(195, 120)
         await pg.wait_for_timeout(300)
         if which in ("all", "exports"):
-            for theme_idx, tag in [(0, "calm"), (7, "sadu"), (8, "islamic"), (9, "parchment"), (10, "botanical"), (11, "gold")]:
+            for theme_idx, tag, mark in [(0, "calm", "شريط أسود"), (6, "sadu", "رحمه الله"), (7, "islamic", "رحمه الله"), (8, "parchment", "شريط أسود"), (9, "botanical", "رحمه الله")]:
                 await pg.get_by_role("button", name="التصميم").click()
                 await pg.wait_for_selector(".sheet.design")
                 await pg.locator(".sheet.design .swatch").nth(theme_idx).click()
                 await pg.wait_for_timeout(300)
+                await pg.locator(".sheet.design button[role=radio]", has_text=mark).click()
+                await pg.wait_for_timeout(300)
                 await pg.get_by_role("button", name="تم").click()
                 await pg.wait_for_timeout(300)
                 for fmt, ext in [("PDF للطباعة", "pdf"), ("PowerPoint للتعديل", "pptx")]:
-                    if ext == "pptx" and tag not in ("calm", "sadu", "gold"):
+                    if ext == "pptx" and tag not in ("calm", "sadu", "parchment"):
                         continue
                     await pg.get_by_role("button", name="تصدير").first.click()
                     await pg.wait_for_selector(".sheet button[role=radio]")
                     await pg.locator(".sheet button[role=radio]", has_text=fmt).click()
                     async with pg.expect_download(timeout=180000) as dl:
-                        await pg.locator(".sheet button.btn.primary", has_text="تصدير").click()
+                        await pg.locator(".sheet button.btn.primary", has_text="تصدير الشجرة").click()
                     await (await dl.value).save_as(f"{OUT}/design-{tag}.{ext}")
                     await pg.wait_for_timeout(300)
             print("exports saved")

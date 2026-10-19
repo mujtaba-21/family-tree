@@ -12,7 +12,7 @@ export function settingsScreen() {
     appBar({ title: "الإعدادات", back: true }),
     h("main", { class: "body" },
       field("المظهر", segmented([{ value: "light", label: "فاتح" }, { value: "dark", label: "داكن" }, { value: "auto", label: "حسب الجوال" }],
-        s.appearance || "auto", (v) => { s.appearance = v; saveSettings(); applyTheme(); }, { cls: "bigseg" }), { helpKey: "appearance" }),
+        s.appearance || "light", (v) => { s.appearance = v; saveSettings(); applyTheme(); }, { cls: "bigseg" }), { helpKey: "appearance" }),
       field("التقويم الأساسي", segmented([{ value: "h", label: "هجري" }, { value: "g", label: "ميلادي" }], s.calendar, (v) => { s.calendar = v; saveSettings(); }, { cls: "bigseg" }), { helpKey: "calendar" }),
       h("div", { class: "toggle-row" }, h("span", { class: "l" }, "إظهار «بن» و«بنت» في الأسماء", help("bin")),
         toggle(!!s.bin, (v) => { s.bin = v; M.setNameOptions({ bin: v }); saveSettings(); })),

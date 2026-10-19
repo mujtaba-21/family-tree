@@ -8,10 +8,13 @@ let backHandler = () => history.back();
 export function setLinkHandler(fn) { linkHandler = fn; }
 export function setBackHandler(fn) { backHandler = fn; }
 
-export function appBar({ title, big, back, actions = [], extra }) {
+export function appBar({ title, big, back, actions = [], extra, titleAction = null }) {
+  const heading = titleAction
+    ? h("h2", null, h("button", { class: "title-link", type: "button", "aria-label": titleAction.label, onclick: titleAction.onclick }, title))
+    : big ? h("h1", null, title) : h("h2", null, title);
   return h("header", { class: "appbar" },
     back ? h("button", { class: "ib", "aria-label": "رجوع", onclick: back === true ? () => backHandler() : back }, icon("back")) : null,
-    big ? h("h1", null, title) : h("h2", null, title),
+    heading,
     extra || null,
     ...actions.map((a) => h("button", { class: "ib solid", "aria-label": a.label, title: a.label, onclick: a.onclick, dataset: a.data || {} }, icon(a.icon))),
   );
@@ -72,12 +75,13 @@ export function closeAllOverlays() {
 export const hasOverlay = () => openOverlays.length > 0;
 
 /** Bottom sheet. content: Node | (close) => Node */
-export function sheet(content, { onClose, light = false, cls = "" } = {}) {
-  // light: the page behind stays visible (no dimming), e.g. to watch the tree change while choosing
+export function sheet(content, { onClose, light = false, cls = "", beforeClose = null } = {}) {
+  // light: the page behind stays visible (no dimming), e.g. to watch the tree change while choosing.
+  // beforeClose(): return false to keep the sheet open (a tap outside or «تم» with something missing).
   const scrim = h("div", { class: "scrim" + (light ? " light" : "") });
   const box = h("div", { class: "sheet" + (cls ? " " + cls : ""), role: "dialog" }, h("div", { class: "grab" }));
   const entry = addOverlay([scrim, box], onClose);
-  const done = () => close(entry, false);
+  const done = () => (beforeClose && beforeClose() === false ? Promise.resolve(false) : close(entry, false));
   box.appendChild(typeof content === "function" ? content(done) : content);
   // links inside a sheet: close it first, then navigate
   box.addEventListener("click", (e) => {
@@ -85,7 +89,7 @@ export function sheet(content, { onClose, light = false, cls = "" } = {}) {
     if (!a) return;
     e.preventDefault();
     const href = a.getAttribute("href");
-    done().then(() => linkHandler(href));
+    done().then((r) => { if (r !== false) linkHandler(href); });
   });
   scrim.addEventListener("click", done);
   return done;

@@ -12,13 +12,33 @@ async def shot(pg, name):
     await pg.wait_for_timeout(250)
     await pg.screenshot(path=f"{SHOTS}/{name}.png", full_page=True)
 
-async def add_kids(pg, rows):
-    for i, (name, g) in enumerate(rows):
-        inp = pg.locator(".brow .inp").nth(i)
-        await inp.fill(name)
-        row = pg.locator(".brow").nth(i)
+async def family(pg, spouse=None, fam=None, kids=(), unknown=False):
+    """Fills the open family sheet (spouse and children) and closes it with «تم»."""
+    await pg.wait_for_selector(".sheet.family")
+    if spouse:
+        await pg.locator(".sheet.family input[name=spouse]").fill(spouse)
+    if unknown:
+        await pg.locator(".sheet.family button.check").first.click()
+    if fam:
+        await pg.locator(".sheet.family input[name=spouseFam]").fill(fam)
+    for i, (name, g) in enumerate(kids):
+        row = pg.locator(".sheet.family .brow").nth(i)
+        await row.locator("input").fill(name)
         if g:
             await row.get_by_role("radio", name="ذكر" if g == "m" else "أنثى").click()
+
+
+async def done(pg):
+    await pg.locator(".sheet.family .fs > button.btn.primary").click()
+    await pg.wait_for_selector(".sheet.family", state="detached")
+    await pg.wait_for_timeout(300)
+
+
+async def to_root(pg):
+    if await pg.locator("header .title-link").count():
+        await pg.locator("header .title-link").click()
+        await pg.wait_for_timeout(300)
+
 
 async def open_person(pg, name):
     await pg.locator("a.chip", has_text=name).first.click()
@@ -44,48 +64,26 @@ async def main():
         await pg.wait_for_timeout(300)
         await shot(pg, "03-root-empty")
 
-        # ---- wife of the root, then children
-        await pg.get_by_role("link", name="زوجة").click()
-        await pg.locator('input[name=name]').fill("موضي")
-        await pg.locator('.names-row input').first.fill("حمد")
-        await pg.locator('input[name=fam]').fill("الراشد")
-        await shot(pg, "04-add-spouse")
-        await pg.get_by_role("button", name="إضافة الزوجة").click()
-        await pg.wait_for_timeout(300)
-        await pg.get_by_role("link", name="أبناء").first.click()
-        await add_kids(pg, [("محمد", "m"), ("عبدالله", "m"), ("نورة", "f"), ("إبراهيم", "m"), ("سارة", "f")])
+        # ---- wife of the root and children, in one sheet
+        await pg.locator("main .btn.ghost", has_text="زوجة وأبناء").click()
+        await family(pg, "موضي", "الراشد", [("محمد", "m"), ("عبدالله", "m"), ("نورة", "f"), ("إبراهيم", "m"), ("سارة", "f")])
         await shot(pg, "05-add-kids")
-        await pg.get_by_role("button", name="إضافة ٥ أبناء").click()
-        await pg.wait_for_timeout(300)
+        await done(pg)
         await shot(pg, "06-root-with-kids")
 
         # ---- عبدالله: wife from outside, children (gender memory now knows some names)
         await open_person(pg, "عبدالله")
-        await pg.get_by_role("link", name="زوجة").click()
-        await pg.locator('input[name=name]').fill("منيرة")
-        await pg.locator('.names-row input').first.fill("علي")
-        await pg.locator('input[name=fam]').fill("الحربي")
-        await pg.get_by_role("button", name="إضافة الزوجة").click()
-        await pg.wait_for_timeout(300)
-        await pg.get_by_role("link", name="أبناء").first.click()
-        await add_kids(pg, [("ناصر", "m"), ("الجوهرة", "f"), ("سعد", None), ("هيا", "f")])
+        await pg.locator("main .btn.ghost", has_text="زوجة وأبناء").click()
+        await family(pg, "منيرة", "الحربي", [("ناصر", "m"), ("الجوهرة", "f"), ("سعد", None), ("هيا", "f")])
         await shot(pg, "07-add-kids-auto-gender")
-        await pg.get_by_role("button", name="إضافة ٤ أبناء").click()
-        await pg.wait_for_timeout(300)
+        await done(pg)
 
         # ---- محمد: wife, daughter لطيفة
-        await pg.locator(".ib[aria-label='الجد الجامع']").click()
-        await pg.wait_for_timeout(200)
+        await to_root(pg)
         await open_person(pg, "محمد")
-        await pg.get_by_role("link", name="زوجة").click()
-        await pg.locator('input[name=name]').fill("هند")
-        await pg.locator('input[name=fam]').fill("العتيبي")
-        await pg.get_by_role("button", name="إضافة الزوجة").click()
-        await pg.wait_for_timeout(300)
-        await pg.get_by_role("link", name="أبناء").first.click()
-        await add_kids(pg, [("لطيفة", "f"), ("فهد", "m")])
-        await pg.get_by_role("button", name="إضافة الاثنين").click()
-        await pg.wait_for_timeout(300)
+        await pg.locator("main .btn.ghost", has_text="زوجة وأبناء").click()
+        await family(pg, "هند", "العتيبي", [("لطيفة", "f"), ("فهد", "m")])
+        await done(pg)
 
         # ---- cousin marriage: ناصر (son of عبدالله) marries لطيفة (daughter of محمد)
         await pg.locator(".ib[aria-label='بحث']").click()
@@ -94,25 +92,28 @@ async def main():
         await shot(pg, "08-search")
         await pg.locator("a.res").first.click()
         await pg.wait_for_timeout(200)
-        await pg.get_by_role("link", name="زوجة").click()
-        await pg.get_by_role("radio", name="من العائلة").click()
+        await pg.locator("main .btn.ghost", has_text="زوجة وأبناء").click()
+        await pg.wait_for_selector(".sheet.family")
+        await pg.locator(".sheet.family a.link-t").click()
+        await pg.wait_for_selector(".sbar input")
         await pg.locator(".sbar input").fill("لطيفة")
         await pg.wait_for_timeout(200)
         await shot(pg, "09-spouse-from-family")
         await pg.locator("button.res").first.click()
         await pg.get_by_role("button", name="تسجيل").click()
         await pg.wait_for_timeout(300)
-        await pg.get_by_role("link", name="أبناء").first.click()
-        await add_kids(pg, [("عبدالله", None), ("موضي", "f")])
-        await pg.get_by_role("button", name="إضافة الاثنين").click()
-        await pg.wait_for_timeout(300)
+        await pg.locator(".card button.addkids").first.click()
+        await family(pg, kids=[("عبدالله", None), ("موضي", "f")])
+        await done(pg)
         await shot(pg, "10-cousin-card")
 
         # ---- dates on عبدالله and the root
-        await pg.locator(".ib[aria-label='الجد الجامع']").click()
+        await to_root(pg)
         await open_person(pg, "عبدالله")
         await pg.locator("a.ib[aria-label='تعديل']").click()
         await pg.wait_for_timeout(200)
+        await pg.locator(".opt-sec").click()  # the optional part opens
+        await pg.wait_for_timeout(400)
         date_rows = pg.locator(".date-row")
         await date_rows.nth(0).locator("input.y").fill("1355")
         await pg.locator(".field-date").nth(0).get_by_role("checkbox", name="تقريبي").click()
@@ -132,7 +133,7 @@ async def main():
         await pg.wait_for_timeout(300)
         await shot(pg, "14-export-sheet")
         async with pg.expect_download(timeout=60000) as dl:
-            await pg.locator(".sheet").get_by_role("button", name="تصدير").click()
+            await pg.locator(".sheet").get_by_role("button", name="تصدير الشجرة").click()
         d = await dl.value
         await d.save_as(f"{OUT}/tree.pdf")
         await pg.wait_for_timeout(300)
@@ -142,7 +143,7 @@ async def main():
         await pg.get_by_role("radio", name="PowerPoint للتعديل").click()
         await pg.wait_for_timeout(200)
         async with pg.expect_download(timeout=60000) as dl2:
-            await pg.locator(".sheet").get_by_role("button", name="تصدير").click()
+            await pg.locator(".sheet").get_by_role("button", name="تصدير الشجرة").click()
         d2 = await dl2.value
         await d2.save_as(f"{OUT}/tree.pptx")
         await pg.go_back()
@@ -175,7 +176,7 @@ async def main():
         # ---- delete a person with children (leaves an empty slot)
         await pg.locator("a.fam").first.click()
         await pg.wait_for_timeout(300)
-        await pg.locator(".ib[aria-label='الجد الجامع']").click()
+        await to_root(pg)
         await open_person(pg, "عبدالله")
         await pg.locator("a.ib[aria-label='تعديل']").click()
         await pg.get_by_role("button", name="حذف عبدالله").click()

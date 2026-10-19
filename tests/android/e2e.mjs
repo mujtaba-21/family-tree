@@ -193,23 +193,23 @@ await step("create a family", async () => {
   return await hash();
 });
 
-await step("add three children at once", async () => {
-  await page.click("a[href$='/kids/new']");
-  await page.waitForSelector(".brow input");
+await step("wife and three children in the family sheet", async () => {
+  await page.click("main .btn.ghost");
+  await page.waitForSelector(".sheet.family .brow input");
+  await page.fill(".sheet.family input[name=spouse]", "نورة");
   const kids = [["محمد", "ذكر"], ["فاطمة", "أنثى"], ["عبدالله", "ذكر"]];
   for (let i = 0; i < kids.length; i++) {
-    const row = page.locator(".brow").nth(i);
+    const row = page.locator(".sheet.family .brow").nth(i);
     await row.locator("input").fill(kids[i][0]);
     await row.locator(".seg button", { hasText: kids[i][1] }).click();
   }
   await sleep(400);
-  shot("add-children");
-  await page.click("main button.btn.primary");
-  await waitHash(/^#\/f\/[^/]+\/p\/[^/]+$/);
-  await page.waitForSelector("a.chip");
+  shot("family-sheet");
+  await page.click(".sheet.family .fs > button.btn.primary");
+  await page.waitForSelector(".kid-list .kid");
   await sleep(800);
   shot("root-with-children");
-  return `${await page.locator("a.chip").count()} children shown`;
+  return `${await page.locator(".kid-list .kid").count()} children shown`;
 });
 
 await step("tree; Back closes a sheet and stays on the screen", async () => {

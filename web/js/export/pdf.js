@@ -1,5 +1,6 @@
 // Tree -> PDF at the drawing's real size. The tree is rendered in tiles at print resolution and
-// stored losslessly (Flate), so names stay sharp; no external library is needed.
+// stored losslessly (Flate), so names stay sharp — except on old paper, whose texture is stored as
+// high-quality JPEG to keep the file small. No external library is needed.
 import { drawCanvas } from "../tree/render.js";
 
 const MM_TO_PT = 72 / 25.4;
@@ -42,6 +43,7 @@ export async function treeToPDF(scene, { images, title = "شجرة العائل�
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   const tiles = [];
+  const paper = !!(scene.deco && scene.deco.paper);
   let n = 0;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -49,11 +51,19 @@ export async function treeToPDF(scene, { images, title = "شجرة العائل�
       canvas.width = tw; canvas.height = th;
       const oxmm = x + (c * TILE) / pxPerMM, oymm = y + (r * TILE) / pxPerMM;
       drawCanvas(ctx, scene, { scale: pxPerMM, ox: oxmm, oy: oymm, wmm: tw / pxPerMM, hmm: th / pxPerMM, images });
-      const rgba = ctx.getImageData(0, 0, tw, th).data;
-      const rgb = new Uint8Array(tw * th * 3);
-      for (let i = 0, j = 0; i < rgba.length; i += 4, j += 3) { rgb[j] = rgba[i]; rgb[j + 1] = rgba[i + 1]; rgb[j + 2] = rgba[i + 2]; }
-      const data = await deflate(rgb);
-      tiles.push({ c, r, tw, th, data });
+      let data, jpeg = false;
+      if (paper) {
+        // old paper is a photograph-like texture: JPEG keeps the file small and the names sharp at this resolution
+        const b = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.92));
+        data = new Uint8Array(await b.arrayBuffer());
+        jpeg = true;
+      } else {
+        const rgba = ctx.getImageData(0, 0, tw, th).data;
+        const rgb = new Uint8Array(tw * th * 3);
+        for (let i = 0, j = 0; i < rgba.length; i += 4, j += 3) { rgb[j] = rgba[i]; rgb[j + 1] = rgba[i + 1]; rgb[j + 2] = rgba[i + 2]; }
+        data = await deflate(rgb);
+      }
+      tiles.push({ c, r, tw, th, data, jpeg });
       n++;
       if (onProgress) onProgress(n / (rows * cols));
       await new Promise((res) => setTimeout(res, 0));
@@ -96,7 +106,7 @@ export async function treeToPDF(scene, { images, title = "شجرة العائل�
   obj(4, `<< /Length ${contentBytes.length} /Filter /FlateDecode >>`, contentBytes);
   obj(5, `<< /Title ${utf16Hex(title)} /Producer (Shajara) >>`);
   tiles.forEach((t, i) => {
-    obj(firstImg + i, `<< /Type /XObject /Subtype /Image /Width ${t.tw} /Height ${t.th} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${t.data.length} >>`, t.data);
+    obj(firstImg + i, `<< /Type /XObject /Subtype /Image /Width ${t.tw} /Height ${t.th} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /${t.jpeg ? "DCTDecode" : "FlateDecode"} /Length ${t.data.length} >>`, t.data);
   });
   const count = firstImg + tiles.length;
   const xref = offset;

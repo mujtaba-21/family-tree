@@ -1,6 +1,8 @@
 // Draw a laid-out tree as SVG (on screen) or onto a canvas (PDF and PowerPoint export).
-// Colours come from the scene's design (sc.theme); decorated designs add sc.deco (frame, title, background).
+// Colours come from the scene's design (sc.theme); sc.deco adds the title, and for decorated designs
+// the frame and background.
 import { esc } from "../util.js";
+import { paperSheet, paperGrain, GRAIN_MM } from "./paper.js";
 
 const f2 = (v) => (Math.round(v * 100) / 100).toString();
 
@@ -19,6 +21,63 @@ const lineColor = (sc, l) => (l.role === "rahma" ? sc.theme.accent : l.role === 
 export const boxColors = boxStyle;
 export const textColor = lineColor;
 
+// ------------------------------------------------------------------ the mourning ribbon
+export const RIBBON = "#1C1C1C";
+function roundRectPoly(x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  const pts = [];
+  const arc = (cx, cy, a0) => { for (let i = 0; i <= 8; i++) { const a = a0 + (Math.PI / 2) * (i / 8); pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } };
+  arc(x + r, y + r, Math.PI);
+  arc(x + w - r, y + r, 1.5 * Math.PI);
+  arc(x + w - r, y + h - r, 0);
+  arc(x + r, y + h - r, 0.5 * Math.PI);
+  return pts;
+}
+/** Sutherland–Hodgman: the part of a polygon inside a convex polygon. */
+function clipConvex(subject, clip) {
+  let area = 0;
+  for (let i = 0; i < clip.length; i++) { const [x1, y1] = clip[i], [x2, y2] = clip[(i + 1) % clip.length]; area += x1 * y2 - x2 * y1; }
+  const sg = area > 0 ? 1 : -1;
+  let out = subject;
+  for (let i = 0; i < clip.length && out.length; i++) {
+    const A = clip[i], B = clip[(i + 1) % clip.length], ex = B[0] - A[0], ey = B[1] - A[1];
+    const side = (q) => sg * (ex * (q[1] - A[1]) - ey * (q[0] - A[0]));
+    const cut = (P, Q) => { const sp = side(P), sq = side(Q), u = sp / (sp - sq); return [P[0] + (Q[0] - P[0]) * u, P[1] + (Q[1] - P[1]) * u]; };
+    const inp = out;
+    out = [];
+    for (let j = 0; j < inp.length; j++) {
+      const S = inp[(j + inp.length - 1) % inp.length], E = inp[j];
+      if (side(E) >= 0) { if (side(S) < 0) out.push(cut(S, E)); out.push(E); }
+      else if (side(S) >= 0) out.push(cut(S, E));
+    }
+  }
+  return out;
+}
+/**
+ * The black ribbon across the top-left corner of a deceased person's box — or of the photo when one
+ * is shown — kept inside the margin so it never touches the name. Returns a polygon (mm) or null.
+ */
+export function ribbonOf(sc, b) {
+  if (!b.dead || sc.opts.deathMark !== "ribbon" || b.style === "ref" || b.style === "blank") return null;
+  const k = sc.k;
+  let x, y, w, h, r, a, t;
+  if (b.photo) {
+    const s = b.h - 1.6 * k;
+    x = b.x + b.w - 0.8 * k - s; y = b.y + 0.8 * k; w = h = s;
+    r = b.g === "f" && sc.opts.genderStyle ? s / 2 : 0.8 * k;
+    a = s * (r >= s / 2 - 1e-6 ? 0.42 : 0.34); t = 0.8 * k;
+  } else {
+    x = b.x; y = b.y; w = b.w; h = b.h; r = boxStyle(sc, b).rx;
+    a = (r >= h / 2 - 1e-6 ? 2.9 : 2.45) * k; t = 0.95 * k;
+  }
+  // a band along the line u + v = a (u, v measured from the corner), t thick, clipped to the shape
+  const c1 = a - t / Math.SQRT2, c2 = a + t / Math.SQRT2;
+  const band = [[x - 1, y + c1 + 1], [x - 1, y + c2 + 1], [x + c2 + 1, y - 1], [x + c1 + 1, y - 1]];
+  const poly = clipConvex(band, roundRectPoly(x, y, w, h, r));
+  return poly.length >= 3 ? poly : null;
+}
+const polyPath = (pts) => "M" + pts.map((q) => f2(q[0]) + " " + f2(q[1])).join("L") + "Z";
+
 // ------------------------------------------------------------------ SVG
 function decoPathsSVG(items) {
   return items.map((it) => `<path d="${it.d}" fill="${it.fill || "none"}"${it.rule ? ` fill-rule="${it.rule}"` : ""}${it.stroke ? ` stroke="${it.stroke}" stroke-width="${f2(it.sw)}" stroke-linejoin="round" stroke-linecap="round"` : ""}${it.alpha != null ? ` opacity="${it.alpha}"` : ""}/>`).join("");
@@ -28,14 +87,16 @@ function decoTextsSVG(texts) {
 }
 
 /** SVG markup. photoURL(id) -> url or null (only used for on-screen drawing). */
-export function toSVG(sc, { photoURL, highlight, interactive } = {}) {
+export function toSVG(sc, { photoURL, interactive } = {}) {
   const { x, y, w, h } = sc.bbox;
   const k = sc.k, T = sc.theme, deco = sc.deco;
   const parts = [];
   parts.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${f2(x)} ${f2(y)} ${f2(w)} ${f2(h)}" width="${f2(w)}mm" height="${f2(h)}mm" font-family="TS">`);
-  if (deco && deco.bgGradient) {
-    parts.push(`<defs><radialGradient id="treebg" cx="50%" cy="45%" r="75%"><stop offset="0" stop-color="${deco.bgGradient.inner}"/><stop offset="1" stop-color="${deco.bgGradient.outer}"/></radialGradient></defs>`);
-    parts.push(`<rect x="${f2(x)}" y="${f2(y)}" width="${f2(w)}" height="${f2(h)}" fill="url(#treebg)"/>`);
+  if (deco && deco.paper) {
+    const sheet = paperSheet(w, h), grain = paperGrain();
+    parts.push(`<defs><pattern id="grain" patternUnits="userSpaceOnUse" width="${GRAIN_MM}" height="${GRAIN_MM}"><image href="${grain.url()}" width="${GRAIN_MM}" height="${GRAIN_MM}"/></pattern></defs>`);
+    parts.push(`<image href="${sheet.url()}" x="${f2(x)}" y="${f2(y)}" width="${f2(w)}" height="${f2(h)}" preserveAspectRatio="none"/>`);
+    parts.push(`<rect x="${f2(x)}" y="${f2(y)}" width="${f2(w)}" height="${f2(h)}" fill="url(#grain)"/>`);
   } else parts.push(`<rect x="${f2(x)}" y="${f2(y)}" width="${f2(w)}" height="${f2(h)}" fill="${T.bg}"/>`);
   if (deco) parts.push(decoPathsSVG(deco.under));
   const d = sc.lines.map((l) => "M" + l.map((q) => f2(q[0]) + " " + f2(q[1])).join("L")).join("");
@@ -50,9 +111,6 @@ export function toSVG(sc, { photoURL, highlight, interactive } = {}) {
     const st = boxStyle(sc, b);
     const target = interactive ? ` data-pid="${esc(b.pid)}"` : "";
     parts.push(`<g${target}${interactive ? ' style="cursor:pointer"' : ""}>`);
-    if (highlight && b.pid === highlight && b.style !== "ref") {
-      parts.push(`<rect x="${f2(b.x - 1.6 * k)}" y="${f2(b.y - 1.6 * k)}" width="${f2(b.w + 3.2 * k)}" height="${f2(b.h + 3.2 * k)}" rx="${f2(st.rx + 1.6 * k)}" fill="none" stroke="${T.accent}" stroke-width="${f2(0.9 * k)}"/>`);
-    }
     parts.push(`<rect x="${f2(b.x)}" y="${f2(b.y)}" width="${f2(b.w)}" height="${f2(b.h)}" rx="${f2(st.rx)}" fill="${st.fill}" stroke="${st.stroke}" stroke-width="${f2(st.sw)}"${st.dash ? ` stroke-dasharray="${f2(st.dash[0])} ${f2(st.dash[1])}"` : ""}/>`);
     const textX0 = b.x + (b.style === "ref" ? b.pad : 0), textX1 = b.x + b.w - (b.photo ? b.pad : 0);
     const cx = (textX0 + textX1) / 2;
@@ -73,6 +131,8 @@ export function toSVG(sc, { photoURL, highlight, interactive } = {}) {
       if (url) parts.push(`<clipPath id="${clip}"><rect x="${f2(px)}" y="${f2(py)}" width="${f2(s)}" height="${f2(s)}" rx="${f2(r)}"/></clipPath><image href="${esc(url)}" x="${f2(px)}" y="${f2(py)}" width="${f2(s)}" height="${f2(s)}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clip})"/>`);
       else parts.push(`<rect x="${f2(px)}" y="${f2(py)}" width="${f2(s)}" height="${f2(s)}" rx="${f2(r)}" fill="${T.blank}"/>`);
     }
+    const rb = ribbonOf(sc, b);
+    if (rb) parts.push(`<path d="${polyPath(rb)}" fill="${RIBBON}"/>`);
     parts.push(`</g>`);
   }
   if (deco) { parts.push(decoPathsSVG(deco.over)); parts.push(decoTextsSVG(deco.texts)); }
@@ -83,14 +143,21 @@ export function toSVG(sc, { photoURL, highlight, interactive } = {}) {
 // ------------------------------------------------------------------ canvas
 function paintBackground(ctx, sc, ox, oy, wmm, hmm) {
   const deco = sc.deco;
-  if (deco && deco.bgGradient) {
-    const { x, y, w, h } = sc.bbox;
-    const g = ctx.createRadialGradient(x + w / 2, y + h * 0.45, 0, x + w / 2, y + h * 0.45, Math.hypot(w, h) * 0.53);
-    g.addColorStop(0, deco.bgGradient.inner);
-    g.addColorStop(1, deco.bgGradient.outer);
-    ctx.fillStyle = g;
-  } else ctx.fillStyle = sc.theme.bg;
+  ctx.fillStyle = sc.theme.bg;
   ctx.fillRect(ox, oy, wmm, hmm);
+  if (deco && deco.paper) {
+    const { x, y, w, h } = sc.bbox;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(paperSheet(w, h).canvas, x, y, w, h);
+    const g = paperGrain().canvas;
+    const pat = ctx.createPattern(g, "repeat");
+    if (pat && pat.setTransform) {
+      pat.setTransform(new DOMMatrix([GRAIN_MM / g.width, 0, 0, GRAIN_MM / g.height, 0, 0]));
+      ctx.fillStyle = pat;
+      ctx.fillRect(ox, oy, wmm, hmm);
+    }
+  }
 }
 function paintItems(ctx, items) {
   for (const it of items) {
@@ -181,6 +248,14 @@ export function drawCanvas(ctx, sc, { scale, ox, oy, wmm, hmm, images, parts = "
       } else { ctx.fillStyle = T.blank; ctx.fillRect(px, py, s, s); }
       ctx.restore();
     }
+    const rb = ribbonOf(sc, b);
+    if (rb) {
+      ctx.fillStyle = RIBBON;
+      ctx.beginPath();
+      rb.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])));
+      ctx.closePath();
+      ctx.fill();
+    }
   }
   if (deco) {
     paintItems(ctx, deco.over);
@@ -197,7 +272,8 @@ export async function decoImage(sc, maxPx = 4096) {
   cv.width = Math.max(1, Math.round(w * scale)); cv.height = Math.max(1, Math.round(h * scale));
   const ctx = cv.getContext("2d");
   drawCanvas(ctx, sc, { scale, ox: x, oy: y, wmm: w, hmm: h, parts: "deco" });
-  const blob = await new Promise((res) => cv.toBlob(res, "image/png"));
+  // old paper is a photograph-like texture: JPEG keeps the file small; drawn ornaments stay PNG
+  const blob = await new Promise((res) => (sc.deco && sc.deco.paper ? cv.toBlob(res, "image/jpeg", 0.9) : cv.toBlob(res, "image/png")));
   cv.width = cv.height = 1;
   return blob;
 }

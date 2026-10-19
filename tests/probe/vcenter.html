@@ -1,0 +1,24 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../web/css/app.css">
+<style>body{background:#fff;padding:10px} svg{display:block;margin:6px 0}</style></head><body>
+<div id="out"></div>
+<script type="module">
+await document.fonts.load('500 100px TS', 'ابجد');
+const names = ["محمد", "علي", "حسين", "مريم"];
+const offs = [0.36, 0.28, 0.24, 0.20];
+const fs = 3.5, BH = 7.6, W = 20;
+let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${names.length * (W + 2) + 14} ${offs.length * (BH + 3)}" width="${(names.length * (W + 2) + 14) * 22}" height="${offs.length * (BH + 3) * 22}" font-family="TS">`;
+offs.forEach((o, r) => {
+  const y = r * (BH + 3) + 1;
+  svg += `<text x="${names.length * (W + 2) + 12}" y="${y + BH / 2 + 1}" font-size="2.6" text-anchor="end" fill="#999">${o}</text>`;
+  names.forEach((n, i) => {
+    const x = i * (W + 2) + 1;
+    svg += `<rect x="${x}" y="${y}" width="${W}" height="${BH}" rx="0.9" fill="#E5EBF2" stroke="#3B5878" stroke-width="0.45"/>`;
+    svg += `<line x1="${x}" x2="${x + W}" y1="${y + BH / 2}" y2="${y + BH / 2}" stroke="#f00" stroke-width="0.08"/>`;
+    svg += `<text x="${x + W / 2}" y="${y + BH / 2 + o * fs}" font-size="${fs}" font-weight="500" text-anchor="middle" direction="rtl" fill="#24384F">${n}</text>`;
+  });
+});
+svg += `</svg>`;
+document.getElementById("out").innerHTML = svg;
+document.body.classList.add("done");
+</script></body></html>
