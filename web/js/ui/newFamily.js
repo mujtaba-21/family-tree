@@ -1,53 +1,44 @@
 // Create a family: its title and the common ancestor (الجد الجامع).
 import { h } from "../util.js";
 import { appBar, screen, field, help } from "./kit.js";
-import { namesInput, genderInput } from "./forms.js";
+import { personForm } from "./personForm.js";
 import * as M from "../model.js";
 import * as store from "../store.js";
+import * as nav from "../nav.js";
 
 export function newFamilyScreen() {
-  const data = { title: "", name: "", ancestors: [], fam: "", gender: "m" };
   let titleTouched = false;
-
   const title = h("input", { class: "inp", placeholder: "مثل: آل السعيد", maxlength: 60 });
-  const name = h("input", { class: "inp", placeholder: "الاسم الأول", maxlength: 40, autocomplete: "off" });
-  const fam = h("input", { class: "inp", placeholder: "مثل: السعيد", maxlength: 40, autocomplete: "off" });
-  const preview = h("div", { class: "preview" });
   const create = h("button", { class: "btn primary", disabled: true }, "إنشاء العائلة");
-
+  const draft = { persons: {}, unions: {}, rootId: null };
+  const form = personForm({ f: draft, role: "root", gender: "m", onChange: () => refresh() });
   const refresh = () => {
-    data.name = name.value.trim();
-    data.fam = fam.value.trim();
-    if (!titleTouched) title.value = data.fam ? (data.fam.startsWith("آل") ? data.fam : "آل " + data.fam) : "";
-    data.title = title.value.trim();
-    const full = [data.name, ...data.ancestors, data.fam].filter(Boolean).join(" ");
-    const inTree = [data.name, data.fam || data.ancestors[data.ancestors.length - 1]].filter(Boolean).join(" ");
-    preview.replaceChildren("الاسم الكامل", h("b", null, full || "—"), `ويظهر في الشجرة: ${inTree || "—"}`);
-    create.disabled = !data.name;
+    const v = form.values();
+    if (!titleTouched) title.value = v.fam ? (v.fam.startsWith("آل") ? v.fam : "آل " + v.fam) : "";
+    create.disabled = !form.valid();
   };
-  title.addEventListener("input", () => { titleTouched = true; refresh(); });
-  name.addEventListener("input", refresh);
-  fam.addEventListener("input", refresh);
+  title.addEventListener("input", () => { titleTouched = true; });
 
   create.addEventListener("click", async () => {
-    if (!data.name) return;
-    const f = M.createFamily({ familyName: data.title, root: { name: data.name, ancestors: data.ancestors, fam: data.fam, gender: data.gender } });
+    if (!form.valid()) return;
+    create.disabled = true;
+    const v = form.values();
+    const f = M.createFamily({ familyName: title.value.trim(), root: v });
+    const root = f.persons[f.rootId];
+    Object.assign(root, { nick: v.nick, useNick: v.useNick, birth: v.birth, death: v.death, deceased: v.deceased, bio: v.bio, note: v.note });
+    Object.assign(root, await form.savePhotos(f.id));
     await store.saveNewFamily(f);
-    history.replaceState(null, "", `#/f/${f.id}/p/${f.rootId}`);
-    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    nav.go(`#/f/${f.id}/p/${f.rootId}`, { replace: true });
   });
 
   refresh();
-  setTimeout(() => name.focus(), 80);
+  form.focus();
   return screen(
     appBar({ title: "عائلة جديدة", back: true }),
     h("main", { class: "body" },
       h("div", { class: "sec-t" }, h("span", { class: "row", style: { gap: "6px" } }, "الجد الجامع", help("root"))),
-      field("الاسم", name),
-      field("أسماء آبائه (اختياري)", namesInput([], (v) => { data.ancestors = v; refresh(); }), { helpKey: "ancestors" }),
-      field("اسم العائلة", fam, { helpKey: "familyName" }),
-      field("الجنس", genderInput("m", (g) => { data.gender = g; })),
-      preview,
+      form.node,
+      h("div", { class: "opt-sec" }, h("span", null, "العائلة")),
       field("اسم العائلة في القائمة", title, { helpKey: "familyTitle" }),
       h("div", { class: "spacer" }),
       create,

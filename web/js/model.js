@@ -1,7 +1,8 @@
 // Family data model: people, marriages (unions) and every rule about them.
 // A family: {format, version, id, name, rootId, created, updated, seq, persons:{}, unions:{}}
-// A person: {id, name, gender, nick, useNick, ancestors[], fam, birth, death, deceased,
+// A person: {id, name, unknownName, gender, nick, useNick, ancestors[], fam, birth, death, deceased,
 //            photos[], mainPhoto, bio, note, blank}
+// nick: the kunya or title typed by the user; when empty, a kunya is derived from the children.
 // A union:  {id, h (husband id|null), w (wife id|null), kids[] (eldest first), order}
 import { uid } from "./util.js";
 import { cleanName, nameKey, rememberGender } from "./names.js";
@@ -14,7 +15,8 @@ export const VERSION = 1;
 export function newPerson(data) {
   return {
     id: uid(),
-    name: cleanName(data.name),
+    name: data.unknownName ? "" : cleanName(data.name),
+    unknownName: !!data.unknownName,
     gender: data.gender === "f" ? "f" : "m",
     nick: cleanName(data.nick || ""),
     useNick: !!data.useNick,
@@ -112,6 +114,10 @@ export function kind(f, id) {
 }
 
 // ------------------------------------------------------------------ names
+let nameOpts = { bin: false };
+/** bin: write «بن/بنت» between the names of the common ancestor and of spouses from outside the family. */
+export function setNameOptions(o) { nameOpts = { ...nameOpts, ...o }; }
+
 /** Paternal chain: [name, father, grandfather, ...] plus the family name at the end of the chain. */
 export function lineage(f, id) {
   const names = [];
@@ -120,7 +126,7 @@ export function lineage(f, id) {
   let cur = f.persons[id];
   while (cur && !seen.has(cur.id)) {
     seen.add(cur.id);
-    names.push(cur.blank ? "…" : cur.name);
+    names.push(cur.blank || cur.unknownName || !cur.name ? "…" : cur.name);
     const u = parentUnion(f, cur.id);
     const fa = u && u.h ? f.persons[u.h] : null;
     if (!fa) {
@@ -132,21 +138,79 @@ export function lineage(f, id) {
   }
   return { names, fam };
 }
+/**
+ * [name, father, grandfather, ...] + family name as one line. An unknown first name reads
+ * «بنت حمد الملحم» / «ابن حمد ...». bin: write «بن/بنت» between all the names.
+ */
+function assemble(names, fam, gender, bin) {
+  const out = [];
+  let i;
+  if (names[0] === "…" && names.length > 1) { out.push(gender === "f" ? "بنت" : "ابن", names[1]); i = 2; }
+  else if (names[0] === "…") i = 1; // unknown name, no fathers: the family name alone
+  else { out.push(names[0]); i = 1; }
+  for (; i < names.length; i++) {
+    if (bin) out.push(i === 1 && gender === "f" ? "بنت" : "بن");
+    out.push(names[i]);
+  }
+  if (fam) out.push(fam);
+  return out.filter(Boolean).join(" ");
+}
+/** For names typed in a form (the root, spouses from outside): honours the «بن/بنت» option. */
+export function typedFullName(names, fam, gender) {
+  return assemble(names, fam, gender, nameOpts.bin);
+}
+/** Names joined; «بن/بنت» only for people whose fathers' names were typed in (root, spouses from outside). */
+function joinNames(f, id, names, fam) {
+  const p = f.persons[id];
+  const typed = id === f.rootId || !isDesc(f, id);
+  return assemble(names, fam, p && p.gender, typed && nameOpts.bin);
+}
 export function fullName(f, id) {
   const { names, fam } = lineage(f, id);
-  return [...names, fam].filter(Boolean).join(" ");
+  return joinNames(f, id, names, fam);
 }
 /** Name, father, grandfather, family name (as many as exist). */
 export function quadName(f, id) {
   const { names, fam } = lineage(f, id);
-  return [...names.slice(0, 3), fam].filter(Boolean).join(" ");
+  return joinNames(f, id, names.slice(0, 3), fam);
+}
+
+/** «أبو» or «أم» + the eldest son (or the eldest daughter when there are no sons). */
+export function kunya(f, id) {
+  const p = f.persons[id];
+  if (!p || p.blank) return "";
+  const kids = unionsOf(f, id).flatMap((u) => u.kids).map((k) => f.persons[k])
+    .filter((k) => k && !k.blank && !k.unknownName && k.name);
+  const eldest = (list) => {
+    let best = list[0] || null;
+    for (const k of list.slice(1)) {
+      if (k.birth && k.birth.y && best.birth && best.birth.y && D.compare(k.birth, best.birth) === -1) best = k;
+    }
+    return best;
+  };
+  const e = eldest(kids.filter((k) => k.gender === "m")) || eldest(kids);
+  return e ? `${p.gender === "f" ? "أم" : "أبو"} ${e.name}` : "";
+}
+/** The kunya or title shown: what the user typed, otherwise the kunya from the children. */
+export function nickOf(f, id) {
+  const p = f.persons[id];
+  if (!p || p.blank) return "";
+  return p.nick || kunya(f, id);
+}
+/** The first name, or the kunya/title when the name is unknown or chosen to be shown instead. */
+function baseName(f, id) {
+  const p = f.persons[id];
+  if (p.unknownName || !p.name) return nickOf(f, id);
+  if (p.useNick) return nickOf(f, id) || p.name;
+  return p.name;
 }
 /** Short label used on chips and in the tree. */
 export function shortName(f, id) {
   const p = f.persons[id];
   if (!p || p.blank) return "";
-  const base = p.useNick && p.nick ? p.nick : p.name;
-  if (id === f.rootId || !isDesc(f, id)) {
+  const base = baseName(f, id);
+  if (!base) return "";
+  if (!p.unknownName && (id === f.rootId || !isDesc(f, id))) {
     const last = p.fam || (p.ancestors && p.ancestors.length ? p.ancestors[p.ancestors.length - 1] : "");
     return last ? `${base} ${last}` : base;
   }
@@ -156,11 +220,12 @@ export function shortName(f, id) {
 export function headName(f, id) {
   const p = f.persons[id];
   if (!p || p.blank) return "";
-  return p.useNick && p.nick ? p.nick : p.name;
+  return baseName(f, id);
 }
 /** Name + father, used to identify a cousin spouse in the tree ("فاطمة يزيد"). */
 export function nameWithFather(f, id) {
   const { names } = lineage(f, id);
+  if (names[0] === "…") return nickOf(f, id) || "";
   return names.slice(0, 2).filter((n) => n && n !== "…").join(" ");
 }
 
@@ -173,8 +238,8 @@ export function search(f, q, { exclude } = {}) {
   for (const p of Object.values(f.persons)) {
     if (p.blank || (exclude && exclude.has(p.id))) continue;
     const { names, fam } = lineage(f, p.id);
-    const chain = [...names.filter((n) => n !== "…"), fam].map(nameKey).join("");
-    const nick = nameKey(p.nick);
+    const chain = names[0] === "…" ? "" : [...names.filter((n) => n !== "…"), fam].map(nameKey).join("");
+    const nick = nameKey(nickOf(f, p.id));
     let score = -1;
     if (nameKey(p.name) === key || (nick && nick === key)) score = 3;
     else if (chain.startsWith(key)) score = 2;
@@ -226,9 +291,9 @@ export function addSpouse(f, pid, spouse, assignKids = []) {
   let sid;
   if (spouse.existingId) sid = spouse.existingId;
   else {
-    const s = newPerson(spouse);
+    const s = newPerson({ ...spouse, gender: p.gender === "m" ? "f" : "m" });
     f.persons[s.id] = s;
-    rememberGender(s.name, s.gender);
+    if (s.name) rememberGender(s.name, s.gender);
     sid = s.id;
   }
   const s = f.persons[sid];
@@ -261,6 +326,47 @@ export function removeUnion(f, unionId) {
   }
   touch(f);
   return true;
+}
+
+/** Replaces the children's order (same children, new order). */
+export function setKidsOrder(f, unionId, kids) {
+  const u = f.unions[unionId];
+  if (!u || kids.length !== u.kids.length || kids.some((k) => !u.kids.includes(k))) return;
+  u.kids = [...kids];
+  touch(f);
+}
+
+/** Everyone linked to a person through marriages (spouses, their other spouses, and so on). */
+export function marriageGroup(f, id) {
+  const seen = new Set([id]);
+  const queue = [id];
+  while (queue.length) {
+    const p = queue.shift();
+    for (const u of unionsOf(f, p)) {
+      const o = spouseIn(u, p);
+      if (o && f.persons[o] && !seen.has(o)) { seen.add(o); queue.push(o); }
+    }
+  }
+  return [...seen];
+}
+
+/**
+ * Corrects a person's gender. A husband is always male and a wife female, so everyone linked by
+ * marriage changes with them. Returns the ids of the others that changed.
+ */
+export function changeGender(f, id, gender) {
+  const p = f.persons[id];
+  if (!p || p.gender === gender) return [];
+  const group = marriageGroup(f, id);
+  for (const pid of group) {
+    const q = f.persons[pid];
+    q.gender = q.gender === "m" ? "f" : "m";
+    if (q.name) rememberGender(q.name, q.gender);
+  }
+  const unions = new Set(group.flatMap((pid) => unionsOf(f, pid)));
+  for (const u of unions) [u.h, u.w] = [u.w, u.h];
+  touch(f);
+  return group.filter((x) => x !== id);
 }
 
 export function moveChild(f, unionId, kidId, delta) {
@@ -301,19 +407,15 @@ export function repositionByBirth(f, id) {
 
 export function updatePerson(f, id, patch) {
   const p = f.persons[id];
-  const genderChanged = patch.gender && patch.gender !== p.gender;
-  for (const [k, v] of Object.entries(patch)) {
+  const { gender, ...rest } = patch;
+  for (const [k, v] of Object.entries(rest)) {
     if (k === "name" || k === "nick" || k === "fam") p[k] = cleanName(v);
     else if (k === "ancestors") p[k] = (v || []).map(cleanName).filter(Boolean);
     else p[k] = v;
   }
-  if (patch.name || patch.gender) rememberGender(p.name, p.gender);
-  if (genderChanged) {
-    // keep husband/wife slots consistent with the corrected gender
-    for (const u of unionsOf(f, id)) {
-      if ((p.gender === "m" && u.w === id) || (p.gender === "f" && u.h === id)) [u.h, u.w] = [u.w, u.h];
-    }
-  }
+  if (patch.unknownName) p.name = "";
+  if (gender && gender !== p.gender) changeGender(f, id, gender);
+  if (patch.name) rememberGender(p.name, p.gender);
   if ("death" in patch && patch.death && patch.death.y) p.deceased = true;
   touch(f);
 }

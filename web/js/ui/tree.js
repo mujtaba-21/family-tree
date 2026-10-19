@@ -1,12 +1,16 @@
-// Screen: the family tree (pan/zoom) and the export sheet (PDF / PowerPoint).
+// Screen: the family tree (pan/zoom), its design (layout, colours, what each box shows) and export.
+// What is shown is exactly what gets exported: one set of options serves both.
 import { h, icon, ar, todayISO } from "../util.js";
 import { appBar, sheet, help, toggle, segmented, busy, toast, alertMsg } from "./kit.js";
-import { layoutTree, DEFAULT_OPTS } from "../tree/layout.js";
+import { layoutTree, DEFAULT_OPTS, LAYOUTS } from "../tree/layout.js";
+import { THEMES, PLAIN, DECORATED } from "../tree/themes.js";
 import { toSVG } from "../tree/render.js";
 import { measure, fontsReady } from "../tree/measure.js";
 import { treeToPDF } from "../export/pdf.js";
 import { treeToPPTX } from "../export/pptx.js";
 import { deliverFile } from "../platform.js";
+import { personHash, displayName } from "./common.js";
+import * as nav from "../nav.js";
 import * as store from "../store.js";
 import * as M from "../model.js";
 
@@ -18,13 +22,17 @@ export function paperFor(w, hh) {
 }
 const cm = (mm) => ar((mm / 10).toFixed(1));
 
-function exportOpts() {
+/** The tree options (shared by the view and the export), with defaults for anything new. */
+function treeOpts() {
   const s = store.state.settings;
   const saved = s.export || {};
-  return { ...DEFAULT_OPTS, ...saved, fields: { ...DEFAULT_OPTS.fields, ...(saved.fields || {}) }, calendar: s.calendar, format: saved.format || "pdf" };
+  const o = { ...DEFAULT_OPTS, ...saved, fields: { ...DEFAULT_OPTS.fields, ...(saved.fields || {}) }, calendar: s.calendar, format: saved.format || "pdf" };
+  if (!LAYOUTS.includes(o.layout)) o.layout = DEFAULT_OPTS.layout;
+  if (!THEMES[o.theme]) o.theme = DEFAULT_OPTS.theme;
+  return o;
 }
-function saveExportOpts(o) {
-  const { calendar, ...rest } = o;
+function saveTreeOpts(o) {
+  const { calendar, title, ...rest } = o;
   store.state.settings.export = rest;
   store.saveSettings();
 }
@@ -42,9 +50,25 @@ async function photoMaps(f, scene) {
   return { urls, bitmaps, blobs };
 }
 
+const LAYOUT_LABELS = [{ value: "balanced", label: "متوازن" }, { value: "vertical", label: "عمودي كامل" }, { value: "flex", label: "مرن" }];
+
+/** A small picture of a design: its background, a male and a female box, and its name. */
+function swatch(id, on, onPick) {
+  const T = THEMES[id];
+  const b = h("button", { class: "swatch" + (on ? " on" : ""), type: "button", "aria-pressed": String(on), "aria-label": T.name },
+    h("span", { class: "sw-pic", style: { background: T.bg, borderColor: T.deco ? T.title || T.accent : T.line } },
+      h("i", { style: { background: T.m.fill, borderColor: T.m.stroke } }),
+      h("i", { class: "f", style: { background: T.f.fill, borderColor: T.f.stroke } }),
+      T.deco ? h("b", { style: { borderColor: T.title || T.accent } }) : null),
+    h("span", { class: "sw-name" }, T.name));
+  b.addEventListener("click", onPick);
+  return b;
+}
+
 export async function treeScreen(f, focusId) {
   await fontsReady();
-  let opts = exportOpts();
+  const opts = treeOpts();
+  opts.title = `شجرة ${f.name}`;
   let scene = null;
   let photos = { urls: new Map(), bitmaps: new Map(), blobs: new Map() };
 
@@ -53,6 +77,7 @@ export async function treeScreen(f, focusId) {
   viewport.appendChild(stage);
   let tx = 0, ty = 0, zoom = 1;
   let svgW = 0, svgH = 0;
+  let coveredBottom = 0; // height hidden under an open design sheet
   const apply = () => { stage.style.transform = `translate(${tx}px, ${ty}px) scale(${zoom})`; };
 
   const draw = async (keepView) => {
@@ -64,14 +89,15 @@ export async function treeScreen(f, focusId) {
     svg.setAttribute("width", svgW); svg.setAttribute("height", svgH);
     if (!keepView) centerOn(focusId);
   };
+  const area = () => ({ vw: viewport.clientWidth || window.innerWidth, vh: Math.max(80, (viewport.clientHeight || window.innerHeight - 70) - coveredBottom) });
   const fit = () => {
-    const vw = viewport.clientWidth || window.innerWidth, vh = viewport.clientHeight || window.innerHeight - 70;
+    const { vw, vh } = area();
     zoom = Math.min(vw / svgW, vh / svgH) * 0.96;
     tx = (vw - svgW * zoom) / 2; ty = (vh - svgH * zoom) / 2;
     apply();
   };
   const centerOn = (pid) => {
-    const vw = viewport.clientWidth || window.innerWidth, vh = viewport.clientHeight || window.innerHeight - 70;
+    const { vw, vh } = area();
     const b = pid && scene.boxes.find((x) => x.pid === pid && x.style !== "ref" && x.style !== "sp");
     if (!b) { fit(); return; }
     zoom = 1;
@@ -87,7 +113,33 @@ export async function treeScreen(f, focusId) {
     apply();
   };
 
-  // ---- gestures: drag to move, pinch or buttons to zoom, tap a name to open the card
+  // ---- tapping a person: open the card, or add a spouse / children right from the tree
+  function personActions(pid) {
+    const p = f.persons[pid];
+    if (!p) return;
+    const k = M.kind(f, pid);
+    const base = personHash(f, pid);
+    sheet((close) => {
+      const go = (hash) => async () => { await close(); nav.go(hash); };
+      const btn = (label, hash, cls = "soft", ic = "plus") => h("button", { class: "btn " + cls, type: "button", onclick: go(hash) }, icon(ic), label);
+      const items = [btn("فتح البطاقة", base, "primary", "person")];
+      if (k !== "blank") {
+        if (k !== "spouse") items.push(btn(p.gender === "f" ? "إضافة زوج" : "إضافة زوجة", `${base}/spouse`));
+        const unions = M.unionsOf(f, pid);
+        if (!unions.length && k !== "spouse") items.push(btn("إضافة أبناء", `${base}/kids/new`));
+        for (const u of unions) {
+          const o = M.spouseIn(u, pid);
+          items.push(btn(o && unions.length > 1 ? `إضافة أبناء من ${displayName(f, o)}` : "إضافة أبناء", `${base}/kids/${u.id}`));
+        }
+      }
+      return h("div", { class: "acts" },
+        h("div", null, h("h3", null, k === "blank" ? "خانة فارغة" : displayName(f, pid)),
+          k !== "blank" ? h("div", { class: "acts-sub" }, M.fullName(f, pid)) : null),
+        ...items);
+    });
+  }
+
+  // ---- gestures: drag to move, pinch or buttons to zoom, tap a name for its actions
   const pointers = new Map();
   let start = null, moved = false, lastTap = 0;
   viewport.addEventListener("pointerdown", (e) => {
@@ -130,7 +182,7 @@ export async function treeScreen(f, focusId) {
       const g = target && target.closest && target.closest("[data-pid]");
       if (now - lastTap < 300) { zoomAt(2, e.clientX - r.left, e.clientY - r.top); lastTap = 0; return; }
       lastTap = now;
-      if (g) setTimeout(() => { if (lastTap === now) location.hash = `#/f/${f.id}/p/${g.dataset.pid}`; }, 310);
+      if (g) setTimeout(() => { if (lastTap === now) personActions(g.dataset.pid); }, 310);
     }
     start = null;
   };
@@ -150,32 +202,43 @@ export async function treeScreen(f, focusId) {
     zoomBtn("fit", "الشجرة كاملة", fit));
   viewport.appendChild(zoombar);
 
-  const exportBtn = h("button", { class: "btn soft", style: { width: "auto", minHeight: "42px", padding: "0 16px", fontSize: "16px" } }, icon("download"), "تصدير");
-  exportBtn.addEventListener("click", () => exportSheet());
+  const sizeText = () => {
+    const w = scene.bbox.w, hh = scene.bbox.h;
+    const paper = paperFor(w, hh);
+    let t = `المقاس: ${cm(w)} × ${cm(hh)} سم، ${paper ? `يكفيه ${paper}` : "أكبر من A0 فيُطبع بنرًا"}`;
+    if (opts.format === "pptx" && Math.max(w, hh) > 1422) t += ". وسيُصغَّر ليناسب أقصى حجم لشريحة PowerPoint";
+    return t;
+  };
 
-  // ---------------------------------------------------------------- export sheet
-  function exportSheet() {
+  // ---------------------------------------------------------------- design (what the tree looks like)
+  function designSheet() {
     sheet((close) => {
-      const info = h("div", { class: "hint", style: { padding: 0 } });
-      const updateInfo = () => {
-        const sc = layoutTree(f, opts, measure);
-        const w = sc.bbox.w * (opts.format === "pptx" ? 1 : 1), hh = sc.bbox.h;
-        const paper = paperFor(w, hh);
-        let t = `المقاس: ${cm(w)} × ${cm(hh)} سم، ${paper ? `يكفيه ${paper}` : "أكبر من A0 فيُطبع بنرًا"}`;
-        if (opts.format === "pptx" && Math.max(w, hh) > 1422) t += ". وسيُصغَّر ليناسب أقصى حجم لشريحة PowerPoint";
-        info.textContent = t;
+      const sheetBox = () => document.querySelector(".sheet.design");
+      const refit = () => {
+        const sb = sheetBox();
+        coveredBottom = sb ? Math.max(0, viewport.getBoundingClientRect().bottom - sb.getBoundingClientRect().top) : 0;
+        fit();
       };
-      const change = async (fn) => { fn(); saveExportOpts(opts); updateInfo(); await draw(true); };
+      const change = async (fn) => { fn(); saveTreeOpts(opts); await draw(true); refit(); };
       const tog = (key, label) => {
         const b = h("button", { class: "tog" + (opts.fields[key] ? " on" : ""), type: "button" }, (opts.fields[key] ? "✓ " : "") + label);
         b.addEventListener("click", () => change(() => { opts.fields[key] = !opts.fields[key]; b.className = "tog" + (opts.fields[key] ? " on" : ""); b.textContent = (opts.fields[key] ? "✓ " : "") + label; }));
         return b;
       };
-      const go = h("button", { class: "btn primary" }, "تصدير");
-      go.addEventListener("click", async () => { await close(); await doExport(); });
-      updateInfo();
-      return h("div", { style: { display: "flex", flexDirection: "column", gap: "14px" } },
-        h("h3", null, "تصدير شجرة العائلة"),
+      const themesRow = (ids) => {
+        const row = h("div", { class: "swatches" });
+        const drawRow = () => row.replaceChildren(...ids.map((id) => swatch(id, opts.theme === id, () => change(() => { opts.theme = id; }).then(() => { for (const r of document.querySelectorAll(".sheet.design .swatches")) r.redraw(); }))));
+        row.redraw = drawRow;
+        drawRow();
+        return row;
+      };
+      setTimeout(refit, 260); // once the sheet has slid in
+      return h("div", { class: "design-body" },
+        h("h3", null, "تصميم الشجرة"),
+        h("div", null, h("div", { class: "opt-t" }, "طريقة الترتيب", help("treeLayout")),
+          segmented(LAYOUT_LABELS, opts.layout, (v) => change(() => { opts.layout = v; }), { cls: "bigseg" })),
+        h("div", null, h("div", { class: "opt-t" }, "الألوان"), themesRow(PLAIN)),
+        h("div", null, h("div", { class: "opt-t" }, "تصاميم مزخرفة (تجريبية)", help("decorated")), themesRow(DECORATED)),
         h("div", null, h("div", { class: "opt-t" }, "ما يظهر في كل خانة"),
           h("div", { class: "row" }, h("span", { class: "tog on locked" }, "✓ الاسم"), tog("photo", "الصورة"), tog("birth", "الميلاد"), tog("death", "الوفاة"), tog("rahma", "رحمه الله"), tog("note", "الملاحظة"), help("treeNote"))),
         h("div", { class: "toggle-row" }, h("span", { class: "l" }, "تمييز الذكور والإناث", help("genderStyle")), toggle(opts.genderStyle, (v) => change(() => { opts.genderStyle = v; }))),
@@ -185,8 +248,22 @@ export async function treeScreen(f, focusId) {
           segmented([{ value: "ref", label: "إحالة برقم" }, { value: "line", label: "خط بينهما" }], opts.cousinStyle, (v) => change(() => { opts.cousinStyle = v; }), { cls: "bigseg" })),
         h("div", null, h("div", { class: "opt-t" }, "حجم الخط", help("fontSize")),
           segmented([{ value: 3.5, label: "١٠ نقاط" }, { value: 4.23, label: "١٢ نقطة" }, { value: 4.94, label: "١٤ نقطة" }], opts.fontMM, (v) => change(() => { opts.fontMM = v; }), { cls: "bigseg" })),
+        h("button", { class: "btn primary", type: "button", onclick: close }, "تم"),
+      );
+    }, { light: true, cls: "design", onClose: () => { coveredBottom = 0; fit(); } });
+  }
+
+  // ---------------------------------------------------------------- export (the tree as shown)
+  function exportSheet() {
+    sheet((close) => {
+      const info = h("div", { class: "hint", style: { padding: 0 } }, sizeText());
+      const go = h("button", { class: "btn primary", type: "button" }, "تصدير");
+      go.addEventListener("click", async () => { await close(); await doExport(); });
+      return h("div", { style: { display: "flex", flexDirection: "column", gap: "14px" } },
+        h("h3", null, "تصدير الشجرة"),
+        h("div", { class: "hint", style: { padding: 0 } }, "تُصدَّر كما تظهر الآن. لتغيير شكلها وألوانها استخدم «التصميم»."),
         h("div", null, h("div", { class: "opt-t" }, "الصيغة", help("format")),
-          segmented([{ value: "pdf", label: "PDF للطباعة" }, { value: "pptx", label: "PowerPoint للتعديل" }], opts.format, (v) => change(() => { opts.format = v; }), { cls: "bigseg" })),
+          segmented([{ value: "pdf", label: "PDF للطباعة" }, { value: "pptx", label: "PowerPoint للتعديل" }], opts.format, (v) => { opts.format = v; saveTreeOpts(opts); info.textContent = sizeText(); }, { cls: "bigseg" })),
         info,
         go,
       );
@@ -202,12 +279,12 @@ export async function treeScreen(f, focusId) {
       const base = `شجرة-${f.name.replace(/\s+/g, "-")}-${todayISO()}`;
       if (opts.format === "pptx") {
         b.set("جارٍ إنشاء ملف PowerPoint…");
-        const { blob, scaled } = await treeToPPTX(sc, { photos: ph.blobs, title: `شجرة ${f.name}` });
+        const { blob, scaled } = await treeToPPTX(sc, { photos: ph.blobs, title: opts.title });
         b.done();
         if (scaled < 1) toast("صُغّرت الشجرة لتناسب أقصى حجم لشريحة PowerPoint", 4000);
         await deliverFile(blob, base + ".pptx", { title: "ملف PowerPoint جاهز", what: "الملف" });
       } else {
-        const { blob } = await treeToPDF(sc, { images: ph.bitmaps, title: `شجرة ${f.name}`, onProgress: (x) => b.set(`جارٍ رسم الشجرة… ${ar(Math.round(x * 100))}٪`) });
+        const { blob } = await treeToPDF(sc, { images: ph.bitmaps, title: opts.title, onProgress: (x) => b.set(`جارٍ رسم الشجرة… ${ar(Math.round(x * 100))}٪`) });
         b.done();
         await deliverFile(blob, base + ".pdf", { title: "ملف PDF جاهز", what: "الملف" });
       }
@@ -218,8 +295,13 @@ export async function treeScreen(f, focusId) {
     }
   }
 
+  const designBtn = h("button", { class: "btn soft tb", type: "button" }, icon("palette"), "التصميم");
+  designBtn.addEventListener("click", () => designSheet());
+  const exportBtn = h("button", { class: "btn soft tb", type: "button" }, icon("download"), "تصدير");
+  exportBtn.addEventListener("click", () => exportSheet());
+
   const scr = h("div", { class: "screen tree-screen" },
-    appBar({ title: "شجرة العائلة", back: true, extra: exportBtn }),
+    appBar({ title: "الشجرة", back: true, extra: h("div", { class: "tb-group" }, designBtn, exportBtn) }),
     viewport,
   );
   // draw after the screen is in the page (sizes are known)

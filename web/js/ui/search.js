@@ -11,7 +11,11 @@ const GEN = ["الجد الجامع", "الجيل الأول", "الجيل ال�
 function resultRow(f, id) {
   const p = f.persons[id];
   const { names, fam } = M.lineage(f, id);
-  const given = names.slice(0, 3).join(" ");
+  const nick = M.nickOf(f, id);
+  const first = names[0] === "…" ? nick || (p.gender === "f" ? "غير معروفة" : "غير معروف") : names[0];
+  const three = [first, ...names.slice(1, 3)];
+  const typed = id === f.rootId || !M.isDesc(f, id);
+  const given = typed ? M.typedFullName(three, "", p.gender) : three.join(" ");
   let sub;
   if (M.isDesc(f, id)) {
     const g = M.genOf(f, id);
@@ -21,6 +25,7 @@ function resultRow(f, id) {
     const sp = M.unionsOf(f, id).map((u) => M.spouseIn(u, id)).filter(Boolean)[0];
     sub = sp ? `${p.gender === "f" ? "زوجة" : "زوج"} ${M.quadName(f, sp)}` : "من خارج العائلة";
   }
+  if (nick && names[0] !== "…") sub = `${nick}، ${sub}`;
   const dot = h("div", { class: "dot " + p.gender });
   if (p.mainPhoto) thumbURL(p.mainPhoto).then((u) => { if (u) dot.replaceChildren(h("img", { src: u, alt: "" })); });
   return h("a", { class: "res", href: personHash(f, id) }, dot,
@@ -47,7 +52,7 @@ export function searchScreen(f) {
     h("main", { class: "body" },
       h("div", { class: "sbar" }, icon("search"), q),
       count, list,
-      !q.value ? h("div", { class: "hint" }, "مثال: «محمد» لكل من اسمه محمد، أو «محمد علي» لمن اسمه محمد واسم أبيه علي.") : null,
+      !q.value ? h("div", { class: "hint" }, "مثال: «محمد» لكل من اسمه محمد، أو «محمد علي» لمن اسمه محمد واسم أبيه علي، أو «أبو محمد» بالكنية.") : null,
     ),
   );
 }

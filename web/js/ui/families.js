@@ -3,6 +3,7 @@ import { h, icon, ar } from "../util.js";
 import { appBar, screen, menu, confirm, prompt, toast, help } from "./kit.js";
 import * as store from "../store.js";
 import { exportBackup, importBackup } from "../export/backup.js";
+import * as nav from "../nav.js";
 
 export function countPeople(n) {
   if (n === 1) return "شخص واحد";
@@ -99,14 +100,14 @@ export async function familiesScreen(rerender) {
     h("br"), "أو افتح نسخة محفوظة من «استيراد من ملف».");
 
   return screen(
-    appBar({ title: "العائلات", big: true, actions: [{ icon: "settings", label: "الإعدادات", onclick: () => (location.hash = "#/settings") }] }),
+    appBar({ title: "العائلات", big: true, actions: [{ icon: "settings", label: "الإعدادات", onclick: () => nav.go("#/settings") }] }),
     h("main", { class: "body" },
       reminder,
       list.length ? cards : empty,
       h("div", { class: "spacer" }),
       h("a", { class: "btn primary", href: "#/new" }, icon("plus"), "عائلة جديدة"),
       h("div", { class: "row", style: { flexWrap: "nowrap", gap: "8px" } },
-        h("button", { class: "btn soft", onclick: async () => { const id = await importBackup(); if (id) location.hash = `#/f/${id}`; } }, icon("upload"), "استيراد من ملف"),
+        h("button", { class: "btn soft", onclick: async () => { const id = await importBackup(); if (id) nav.go(`#/f/${id}`); } }, icon("upload"), "استيراد من ملف"),
         help("exportData")),
     ),
   );

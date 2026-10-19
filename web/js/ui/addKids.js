@@ -5,6 +5,7 @@ import { guessGender } from "../names.js";
 import * as M from "../model.js";
 import * as store from "../store.js";
 import { personHash } from "./common.js";
+import * as nav from "../nav.js";
 
 function addLabel(rows) {
   const n = rows.length;
@@ -85,16 +86,18 @@ export function addKidsScreen(f, pid, unionId) {
     const ids = M.addChildren(f, union.id, fl.map((r) => ({ name: r.name, gender: r.gender })));
     store.changed();
     toast("تمت " + addLabel(fl));
-    history.back();
+    nav.finish(personHash(f, pid));
   });
+  const newRow = h("button", { class: "btn text addrow", type: "button", onclick: () => addRow(true) }, icon("plus"), "سطر جديد");
 
   return screen(
     appBar({ title, back: true }),
     h("main", { class: "body", style: { gap: "10px" } },
       existing ? h("div", { class: "hint" }, `سبق تسجيل ${ar(existing)} من ${other ? "أبنائهما" : p.gender === "f" ? "أبنائها" : "أبنائه"}. الجدد يُضافون بعدهم، وتستطيع ترتيبهم لاحقًا.`) : null,
       list,
+      newRow,
       msg,
-      h("div", { class: "hint" }, "اكتب الأكبر أولًا. «التالي» في لوحة المفاتيح ينقلك للسطر التالي، والجنس يُملأ تلقائيًا للأسماء المُدخلة سابقًا، وتستطيع تغييره."),
+      h("div", { class: "hint" }, "اكتب الأكبر أولًا. يظهر سطر جديد كلما كتبت اسمًا، أو اضغط «سطر جديد». والجنس يُملأ تلقائيًا للأسماء المُدخلة سابقًا، وتستطيع تغييره."),
       !u ? h("div", { class: "hint" }, p.gender === "m" ? "لم تُحدَّد أمهم بعد. تستطيع تحديدها عند إضافة الزوجة." : "لم يُحدَّد أبوهم بعد. تستطيع تحديده عند إضافة الزوج.") : null,
       h("div", { class: "spacer" }),
       save,

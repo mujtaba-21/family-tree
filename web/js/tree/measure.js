@@ -3,11 +3,11 @@ const cv = document.createElement("canvas");
 const ctx = cv.getContext("2d");
 const cache = new Map();
 
-export function measure(text, weight = 500) {
-  const key = weight + "|" + text;
+export function measure(text, weight = 500, family = "TS") {
+  const key = family + "|" + weight + "|" + text;
   let w = cache.get(key);
   if (w === undefined) {
-    ctx.font = `${weight} 100px TS`;
+    ctx.font = `${weight} 100px ${family}`;
     w = ctx.measureText(text).width / 100;
     cache.set(key, w);
   }

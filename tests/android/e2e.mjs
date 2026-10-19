@@ -182,8 +182,8 @@ await step("app opens", async () => {
 
 await step("create a family", async () => {
   await page.click("a[href='#/new']");
-  await page.fill("input[placeholder='الاسم الأول']", "سليمان");
-  await page.fill("input[placeholder='مثل: السعيد']", "المنصور");
+  await page.fill("input[name=name]", "سليمان");
+  await page.fill("input[name=fam]", "المنصور");
   await sleep(400);
   shot("new-family");
   await page.click("button:has-text('إنشاء العائلة')");
@@ -349,12 +349,16 @@ await step("big tree: view, then PDF with dates → save", async () => {
   await page.click("button[aria-label='الشجرة كاملة']");
   await sleep(1200);
   shot("big-tree-whole");
-  const secs = await exportFromTree("pdf", async () => {
-    for (const label of ["الميلاد", "الوفاة"]) {
-      const b = page.locator(".sheet .tog", { hasText: label });
-      if (!/\bon\b/.test((await b.getAttribute("class")) || "")) await b.click();
-    }
-  });
+  // dates are chosen in the design sheet; the export takes the tree as shown
+  await page.click("header button:has-text('التصميم')");
+  await page.waitForSelector(".sheet.design");
+  for (const label of ["الميلاد", "الوفاة"]) {
+    const b = page.locator(".sheet .tog", { hasText: label });
+    if (!/\bon\b/.test((await b.getAttribute("class")) || "")) await b.click();
+  }
+  await page.click(".sheet.design button.btn.primary:has-text('تم')");
+  await sleep(500);
+  const secs = await exportFromTree("pdf");
   const r = await saveOnPhone(".pdf");
   return `ready in ${secs.toFixed(1)}s; ${r}`;
 });

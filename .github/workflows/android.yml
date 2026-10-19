@@ -1,9 +1,12 @@
 name: Build
 
+# A push to main updates the web version only (the pages job).
+# The Android APK is built, checked on emulators and released only when the workflow is started by hand
+# (Actions → Build → Run workflow).
 on:
   push:
     branches: [main]
-    paths: ["web/**", "android-shell/**", "tools/**", "tests/android/**", ".github/workflows/android.yml"]
+    paths: ["web/**", "tools/**", ".github/workflows/android.yml"]
   workflow_dispatch:
 
 permissions:
@@ -12,6 +15,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
 
@@ -100,6 +104,7 @@ jobs:
   # Screenshots and logs are kept on the branches test-results-android-14 / -15.
   check:
     needs: build
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -161,6 +166,7 @@ jobs:
   # Published only after both checks pass.
   release:
     needs: [build, check]
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

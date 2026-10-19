@@ -1,0 +1,59 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><link rel="stylesheet" href="../../web/css/app.css">
+<style>body{background:#fff} .case{margin:20px;border:1px solid #ccc;display:inline-block} .case h4{font:14px TS;margin:4px} svg{display:block}</style></head><body>
+<div id="out"></div>
+<script type="module">
+import * as M from "../../web/js/model.js";
+import { layoutTree } from "../../web/js/tree/layout.js";
+import { toSVG } from "../../web/js/tree/render.js";
+import { measure, fontsReady } from "../../web/js/tree/measure.js";
+await fontsReady();
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const NM = ["محمد","علي","حسن","حسين","عبدالله","موسى","جعفر","صالح","سعد","يوسف","إبراهيم","عيسى","مهدي","كاظم"];
+const NF = ["فاطمة","زينب","مريم","خديجة","سكينة","رقية","ليلى","نورة","هدى","سارة"];
+function make(depth, branch, wifeP = 0.8) {
+  const f = M.createFamily({ familyName: "تجربة", root: { name: "الجد", gender: "m", fam: "التجربة" } });
+  let gen = [f.rootId];
+  for (let g = 1; g <= depth; g++) {
+    const next = [];
+    for (const pid of gen) {
+      const p = f.persons[pid];
+      if (p.gender !== "m" && rnd() > 0.3) continue;
+      const n = Math.round(branch(g) * (0.5 + rnd()));
+      if (!n) continue;
+      const u = rnd() < wifeP ? M.addSpouse(f, pid, { name: p.gender === "m" ? NF[Math.floor(rnd()*10)] : NM[Math.floor(rnd()*14)], fam: "الغريب" }) : M.unknownSpouseUnion(f, pid, true);
+      const rows = [];
+      for (let i = 0; i < n; i++) { const m = rnd() < 0.55; rows.push({ name: m ? NM[Math.floor(rnd()*14)] : NF[Math.floor(rnd()*10)], gender: m ? "m" : "f" }); }
+      next.push(...M.addChildren(f, u.id, rows));
+    }
+    gen = next;
+  }
+  return f;
+}
+const fams = {
+  g2: make(1, () => 10), g3: make(2, () => 4), g4: make(3, (g) => [0, 5, 4, 3][g]),
+  g5: make(4, (g) => [0, 5, 4, 3, 2.5][g]), g6: make(5, (g) => [0, 4, 3.5, 3, 2.5, 2][g]),
+  g8: make(7, (g) => [0, 3, 3, 2.6, 2.4, 2.2, 2, 1.8][g]),
+};
+const params = new URLSearchParams(location.search);
+const only = params.get("f");
+const res = {};
+for (const [key, f] of Object.entries(fams)) {
+  if (only && key !== only) continue;
+  res[key] = {};
+  for (const layout of ["balanced", "vertical", "flex"]) {
+    const base = layoutTree(f, { layout }, measure);
+    const withDates = layoutTree(f, { layout, fields: { birth: true, death: true, rahma: true }, fontMM: 4.23 }, measure);
+    res[key][layout] = { L: base.L, w: Math.round(base.bbox.w), h: Math.round(base.bbox.h), L2: withDates.L, n: Object.keys(f.persons).length };
+    if (params.get("draw")) {
+      const div = document.createElement("div"); div.className = "case"; div.id = `${key}-${layout}`;
+      div.innerHTML = `<h4>${key} ${layout} L=${base.L} ${Math.round(base.bbox.w)}×${Math.round(base.bbox.h)}mm</h4>` + toSVG(base);
+      const svg = div.querySelector("svg");
+      const s = Math.min(1, 1500 / (base.bbox.w * 3.78));
+      svg.setAttribute("width", base.bbox.w * 3.78 * s); svg.setAttribute("height", base.bbox.h * 3.78 * s);
+      document.getElementById("out").appendChild(div);
+    }
+  }
+}
+window.__res = res;
+document.title = "done";
+</script></body></html>

@@ -6,7 +6,7 @@ import { loadGenderMemory } from "./names.js";
 
 export const state = {
   family: null,       // the open family (in memory)
-  settings: { calendar: "h", reminderDays: 30, cousinStyle: "ref" },
+  settings: { calendar: "h", reminderDays: 30, cousinStyle: "ref", appearance: "auto", bin: false },
   lastPerson: {},     // familyId -> last visited person id
 };
 
@@ -15,6 +15,7 @@ export async function init() {
   await loadGenderMemory();
   const s = await db.getMeta("settings");
   if (s) Object.assign(state.settings, s);
+  M.setNameOptions({ bin: !!state.settings.bin });
   state.lastPerson = (await db.getMeta("lastPerson")) || {};
 }
 

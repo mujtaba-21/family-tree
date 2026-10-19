@@ -56,8 +56,8 @@ async def main():
 
         # a family to work with
         await pg.click("a[href='#/new']")
-        await pg.fill("input[placeholder='الاسم الأول']", "سليمان")
-        await pg.fill("input[placeholder='مثل: السعيد']", "المنصور")
+        await pg.fill("input[name=name]", "سليمان")
+        await pg.fill("input[name=fam]", "المنصور")
         await pg.click("button:has-text('إنشاء العائلة')")
         await wait_js(pg, "() => /#\\/f\\/[^/]+\\/p\\//.test(location.hash)")
         await pg.evaluate("history.back()")

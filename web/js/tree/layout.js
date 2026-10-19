@@ -1,10 +1,14 @@
-// Family-tree layout (shape "د"): the first generations as top-down rows, then every branch as a
-// right-to-left tree (generations as columns going left, eldest on top). The switch generation is
-// chosen automatically so the whole drawing is close to paper proportions.
+// Family-tree layout: the first generations as top-down rows, then (from the "switch generation")
+// every branch as a right-to-left list (generations as columns going left, eldest on top).
+// Three ways to choose the switch generation (opts.layout):
+//  - "balanced" (default): as many generations in rows as the width allows; the rest as lists;
+//  - "vertical": every generation in rows;
+//  - "flex": whatever brings the drawing closest to paper proportions.
 // All geometry is in millimetres.
 import * as M from "../model.js";
 import * as D from "../dates.js";
 import { ar } from "../util.js";
+import { themeOf, decorate, setTitleLength } from "./themes.js";
 
 export const DEFAULT_OPTS = {
   fontMM: 3.5,              // ~10pt
@@ -13,14 +17,15 @@ export const DEFAULT_OPTS = {
   siblingOrder: "age",      // "age" | "gender"
   cousinStyle: "ref",       // "ref" | "line"
   calendar: "h",
+  layout: "balanced",       // "balanced" | "vertical" | "flex"
+  theme: "calm",            // see tree/themes.js
+  title: "",                // shown by the decorated designs
 };
+export const LAYOUTS = ["balanced", "vertical", "flex"];
 
-const COLORS = {
-  m: { fill: "#E5EBF2", stroke: "#3B5878", text: "#2E4763" },
-  f: { fill: "#F4E4E0", stroke: "#9E4D45", text: "#83392F" },
-  n: { fill: "#EFEAE1", stroke: "#7C7166", text: "#2A2420" },
-};
-export const LINE = "#8C8174", ACCENT = "#2F5D50";
+// "balanced": rows are kept while the drawing is no wider than this many times its height,
+// or no wider than this many millimetres (at the default text size).
+const WIDE_RATIO = 4.5, WIDE_ABS = 500;
 
 function datesText(p, cal, fields) {
   const b = fields.birth && p.birth && p.birth.y ? D.yearLabel(p.birth, cal) : "";
@@ -46,6 +51,8 @@ export function layoutTree(f, options, measure) {
   const BADGE = 4.0 * k;
   const refMode = opts.cousinStyle === "ref";
   const P = f.persons;
+  const theme = themeOf(opts.theme);
+  const colors = { m: theme.m, f: theme.f, n: theme.n };
 
   // ---- which optional text lines exist anywhere (boxes share one height)
   const people = Object.values(P).filter((p) => !p.blank);
@@ -365,20 +372,46 @@ export function layoutTree(f, options, measure) {
       grow(a * l.p0[0] + bb * l.c0[0] + c * l.c1[0] + d * l.p1[0], a * l.p0[1] + bb * l.c0[1] + c * l.c1[1] + d * l.p1[1]);
     }
     const pad = 10 * k;
-    return { boxes: S.boxes, lines: S.lines, marr: S.marr, links, pos: S.pos, BH, k, opts, colors: COLORS,
+    return { boxes: S.boxes, lines: S.lines, marr: S.marr, links, pos: S.pos, BH, k, opts, theme, colors,
       bbox: { x: x0 - pad, y: y0 - pad, w: x1 - x0 + 2 * pad, h: y1 - y0 + 2 * pad } };
   }
 
-  // choose the switch generation whose drawing is closest to √2 proportions
   let maxGen = 0;
   for (const id of Object.keys(P)) if (M.isDesc(f, id)) maxGen = Math.max(maxGen, M.genOf(f, id));
-  let best = null;
-  for (let L = 1; L <= Math.max(1, maxGen); L++) {
-    const sc = finish(buildTD(L));
-    const ratio = Math.max(sc.bbox.w, sc.bbox.h) / Math.max(1, Math.min(sc.bbox.w, sc.bbox.h));
-    sc.L = L;
-    sc.score = Math.abs(Math.log(ratio) - Math.log(Math.SQRT2));
-    if (!best || sc.score < best.score - 1e-9) best = sc;
+  const allRows = maxGen + 1;
+  const build = (L) => { const sc = finish(buildTD(L)); sc.L = L; return sc; };
+  let sc;
+  if (opts.forceL) sc = build(opts.forceL);
+  else if (opts.layout === "vertical") sc = build(allRows);
+  else if (opts.layout === "flex") {
+    // the switch generation whose drawing is closest to √2 proportions
+    for (let L = 1; L <= Math.max(1, maxGen); L++) {
+      const c = build(L);
+      const ratio = Math.max(c.bbox.w, c.bbox.h) / Math.max(1, Math.min(c.bbox.w, c.bbox.h));
+      c.score = Math.abs(Math.log(ratio) - Math.log(Math.SQRT2));
+      if (!sc || c.score < sc.score - 1e-9) sc = c;
+    }
+  } else if (opts._probe) {
+    // balanced, decided on plain name boxes (see below)
+    for (let L = allRows; L >= 1; L--) {
+      sc = build(L);
+      if (sc.bbox.w <= WIDE_RATIO * sc.bbox.h || sc.bbox.w <= WIDE_ABS * k) break;
+    }
+    return sc;
+  } else {
+    // balanced: as many generations in rows as the width allows. The choice is made on plain name
+    // boxes at the default size, so showing dates or photos, or a bigger font, never changes the shape.
+    const probe = layoutTree(f, { ...DEFAULT_OPTS, siblingOrder: opts.siblingOrder, genderStyle: opts.genderStyle,
+      fields: { photo: false, birth: false, death: false, rahma: false, note: false }, _probe: true }, measure);
+    sc = build(probe.L);
   }
-  return best;
+  sc.treeBox = { ...sc.bbox };
+  // decorated designs: a frame and a title around the drawing
+  if (theme.deco) {
+    const title = opts.title || "";
+    setTitleLength(title ? measure(title, 700, "TD") : 2);
+    sc.deco = decorate(theme, sc.bbox, title);
+    sc.bbox = { ...sc.deco.bbox };
+  }
+  return sc;
 }

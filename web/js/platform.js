@@ -1,6 +1,7 @@
 // Differences between the Android app (Capacitor) and the web/iPhone version.
 import { h } from "./util.js";
 import { sheet, toast, busy, hasOverlay } from "./ui/kit.js";
+import * as nav from "./nav.js";
 
 const Cap = () => window.Capacitor;
 export const isNative = () => !!(Cap() && Cap().isNativePlatform && Cap().isNativePlatform());
@@ -10,9 +11,8 @@ export function initPlatform() {
   const App = plugin("App");
   if (isNative() && App) {
     App.addListener("backButton", () => {
-      if (hasOverlay()) { history.back(); return; }
-      const atHome = !location.hash || location.hash === "#/" || location.hash === "#";
-      if (atHome) App.exitApp(); else history.back();
+      if (hasOverlay()) { history.back(); return; } // closes the topmost sheet, menu or dialog
+      if (!nav.back()) App.exitApp();                // on the family list: leave the app
     });
   }
 }

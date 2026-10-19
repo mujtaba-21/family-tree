@@ -1,6 +1,6 @@
 // Tree -> PowerPoint (one slide, editable shapes). PowerPoint slides are at most 56 inches wide,
 // so a larger tree is scaled down to fit.
-import { LINE, ACCENT } from "../tree/layout.js";
+import { boxColors, textColor, decoImage } from "../tree/render.js";
 
 const MAX_IN = 56;
 let loading = null;
@@ -18,7 +18,7 @@ function loadLib() {
 }
 
 const hex = (c) => c.replace("#", "").toUpperCase();
-const FONT = "thmanyah sans";
+const FONT = "thmanyah sans", TITLE_FONT = "thmanyah serif display";
 
 function blobToDataURL(blob) {
   return new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
@@ -38,11 +38,25 @@ export async function treeToPPTX(scene, { photos, title = "شجرة العائل
   pptx.title = title;
   pptx.rtlMode = true;
   const slide = pptx.addSlide();
-  slide.background = { color: "FFFFFF" };
+  const T = scene.theme;
+  slide.background = { color: hex(T.bg) };
   const ix = (v) => (v - X) * s, iy = (v) => (v - Y) * s;
   const pt = (mm) => Math.max(0.25, mm * scaled * 2.8346); // mm -> points (line widths, font sizes)
   const k = scene.k;
   const { genderStyle } = scene.opts;
+  // decorated designs: background, frame and ornaments as one picture behind the tree; the title stays text
+  if (scene.deco) {
+    const data = await blobToDataURL(await decoImage(scene));
+    slide.addImage({ data, x: 0, y: 0, w: W * s, h: H * s });
+    for (const t of scene.deco.texts) {
+      const tw = t.fs * Math.max(4, t.t.length * 0.62);
+      slide.addText(t.t, {
+        x: ix(t.x - tw / 2), y: iy(t.y - t.fs * 1.05), w: tw * s, h: t.fs * 1.5 * s,
+        fontFace: TITLE_FONT, fontSize: pt(t.fs) * 0.98, bold: true, color: hex(t.fill),
+        align: "center", valign: "middle", margin: 0, rtlMode: true, lang: "ar-SA", fit: "none", wrap: false,
+      });
+    }
+  }
 
   const seg = (a, b, color, widthMM, dash) => {
     const x1 = ix(a[0]), y1 = iy(a[1]), x2 = ix(b[0]), y2 = iy(b[1]);
@@ -53,32 +67,29 @@ export async function treeToPPTX(scene, { photos, title = "شجرة العائل
     });
   };
   const poly = (pts, color, widthMM, dash) => { for (let i = 1; i < pts.length; i++) seg(pts[i - 1], pts[i], color, widthMM, dash); };
-  for (const l of scene.lines) poly(l, LINE, 0.32 * k);
-  for (const l of scene.marr) poly(l, ACCENT, 0.5 * k);
+  for (const l of scene.lines) poly(l, T.line, 0.32 * k);
+  for (const l of scene.marr) poly(l, T.accent, 0.5 * k);
   for (const l of scene.links) {
     const pts = [];
     for (let i = 0; i <= 16; i++) {
       const t = i / 16, a = (1 - t) ** 3, b = 3 * (1 - t) ** 2 * t, c = 3 * (1 - t) * t * t, d = t ** 3;
       pts.push([a * l.p0[0] + b * l.c0[0] + c * l.c1[0] + d * l.p1[0], a * l.p0[1] + b * l.c0[1] + c * l.c1[1] + d * l.p1[1]]);
     }
-    poly(pts, ACCENT, 0.55 * k, true);
+    poly(pts, T.accent, 0.55 * k, true);
   }
 
   for (const b of scene.boxes) {
-    const c = scene.colors[genderStyle ? b.g : "n"];
     const round = genderStyle && b.g === "f";
-    let fill = c.fill, stroke = c.stroke, sw = 0.45 * k, text = c.text, dash = "solid";
-    if (b.style === "sp") { fill = "#FFFFFF"; sw = 0.3 * k; text = genderStyle ? c.stroke : c.text; }
-    if (b.style === "ref") { fill = "#FFFFFF"; sw = 0.4 * k; text = c.stroke; dash = "dash"; }
-    if (b.style === "blank") { fill = null; stroke = "#BDB2A3"; sw = 0.35 * k; }
-    if (b.style === "root") sw = 0.8 * k;
+    const st = boxColors(scene, b);
+    const fill = st.fill === "none" ? null : st.fill, stroke = st.stroke, sw = st.sw, text = st.text;
+    const dash = st.dash ? "dash" : "solid";
     const textLeftPad = b.style === "ref" ? b.pad : 0, textRightPad = b.photo ? b.pad : 0;
     const runs = [];
     const shown = b.lines.filter((l) => l.t);
     shown.forEach((l, i) => {
       runs.push({ text: l.t, options: {
         fontFace: FONT, fontSize: pt(l.fs) * 0.98, bold: l.wt >= 700,
-        color: hex(l.role === "rahma" ? ACCENT : l.role === "dates" || l.role === "note" ? "#6F655B" : text),
+        color: hex(textColor(scene, l) || text),
         breakLine: i < shown.length - 1, rtlMode: true, lang: "ar-SA",
       } });
     });
@@ -100,7 +111,7 @@ export async function treeToPPTX(scene, { photos, title = "شجرة العائل
       const bx = b.x + (round ? 3.4 * k : 2.7 * k), by = b.y + b.h / 2, r = 1.85 * k;
       slide.addText(b.refNum || "", {
         shape: pptx.ShapeType.ellipse, x: ix(bx - r), y: iy(by - r), w: 2 * r * s, h: 2 * r * s,
-        fill: { color: hex(ACCENT) }, color: "FFFFFF", fontFace: FONT, fontSize: pt(2.7 * k), bold: true, align: "center", valign: "middle", margin: 0,
+        fill: { color: hex(T.accent) }, color: hex(T.onAccent), fontFace: FONT, fontSize: pt(2.7 * k), bold: true, align: "center", valign: "middle", margin: 0,
       });
     }
     if (b.photo && photos && photos.get(b.photo)) {

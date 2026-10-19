@@ -6,6 +6,13 @@ import { state, thumbURL } from "../store.js";
 
 export const personHash = (f, pid) => `#/f/${f.id}/p/${pid}`;
 
+/** The name to show for a person; a kunya or «غير معروف» when the name is unknown. */
+export function displayName(f, pid) {
+  const p = f.persons[pid];
+  if (!p || p.blank) return "—";
+  return M.headName(f, pid) || (p.gender === "f" ? "غير معروفة" : "غير معروف");
+}
+
 /** Clickable name chip (square = male, round = female, white = from outside the family, dashed = empty slot). */
 export function chip(f, pid, { current, label } = {}) {
   const p = f.persons[pid];
@@ -13,7 +20,7 @@ export function chip(f, pid, { current, label } = {}) {
   const k = M.kind(f, pid);
   const cls = "chip " + (k === "blank" ? "blank" : p.gender) + (k === "spouse" ? " out" : "") + (current ? " cur" : "");
   return h("a", { class: cls, href: personHash(f, pid), "aria-current": current ? "true" : null },
-    k === "blank" ? "—" : label || M.headName(f, pid));
+    k === "blank" ? "—" : label || displayName(f, pid));
 }
 
 /** Photo square/circle; loads the stored thumbnail if any. */

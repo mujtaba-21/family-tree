@@ -2,9 +2,15 @@
 import { h, icon } from "../util.js";
 import { HELP } from "./help.js";
 
+// Set by nav.js: where links and the back arrow go (kept here to avoid a circular import).
+let linkHandler = (href) => { location.hash = href; };
+let backHandler = () => history.back();
+export function setLinkHandler(fn) { linkHandler = fn; }
+export function setBackHandler(fn) { backHandler = fn; }
+
 export function appBar({ title, big, back, actions = [], extra }) {
   return h("header", { class: "appbar" },
-    back ? h("button", { class: "ib", "aria-label": "رجوع", onclick: back === true ? () => history.back() : back }, icon("back")) : null,
+    back ? h("button", { class: "ib", "aria-label": "رجوع", onclick: back === true ? () => backHandler() : back }, icon("back")) : null,
     big ? h("h1", null, title) : h("h2", null, title),
     extra || null,
     ...actions.map((a) => h("button", { class: "ib solid", "aria-label": a.label, title: a.label, onclick: a.onclick, dataset: a.data || {} }, icon(a.icon))),
@@ -21,12 +27,16 @@ let openOverlays = [];
 let ignorePops = 0;
 const pendingBack = []; // resolvers waiting for our own history.back() to finish
 
-// One back press closes the topmost overlay (sheet, dialog, menu) instead of leaving the screen.
-window.addEventListener("popstate", () => {
-  if (ignorePops > 0) { ignorePops--; const r = pendingBack.shift(); if (r) r(); return; }
+/**
+ * Called by nav.js on every popstate. One back press closes the topmost overlay (sheet, dialog,
+ * menu) instead of leaving the screen. Returns true when the event belonged to an overlay.
+ */
+export function handlePop() {
+  if (ignorePops > 0) { ignorePops--; const r = pendingBack.shift(); if (r) r(); return true; }
   const top = openOverlays[openOverlays.length - 1];
-  if (top) close(top, true);
-});
+  if (top) { close(top, true); return true; }
+  return false;
+}
 
 function addOverlay(nodes, onClose) {
   const entry = { nodes, onClose };
@@ -49,6 +59,10 @@ function close(entry, fromPop) {
   entry.onClose && entry.onClose(fromPop);
   return done;
 }
+/** Closes every open overlay properly (history included); resolves when done. */
+export async function closeOverlays() {
+  while (openOverlays.length) await close(openOverlays[openOverlays.length - 1], false);
+}
 export function closeAllOverlays() {
   for (const e of [...openOverlays]) {
     openOverlays = openOverlays.filter((x) => x !== e);
@@ -58,9 +72,10 @@ export function closeAllOverlays() {
 export const hasOverlay = () => openOverlays.length > 0;
 
 /** Bottom sheet. content: Node | (close) => Node */
-export function sheet(content, { onClose } = {}) {
-  const scrim = h("div", { class: "scrim" });
-  const box = h("div", { class: "sheet", role: "dialog" }, h("div", { class: "grab" }));
+export function sheet(content, { onClose, light = false, cls = "" } = {}) {
+  // light: the page behind stays visible (no dimming), e.g. to watch the tree change while choosing
+  const scrim = h("div", { class: "scrim" + (light ? " light" : "") });
+  const box = h("div", { class: "sheet" + (cls ? " " + cls : ""), role: "dialog" }, h("div", { class: "grab" }));
   const entry = addOverlay([scrim, box], onClose);
   const done = () => close(entry, false);
   box.appendChild(typeof content === "function" ? content(done) : content);
@@ -70,7 +85,7 @@ export function sheet(content, { onClose } = {}) {
     if (!a) return;
     e.preventDefault();
     const href = a.getAttribute("href");
-    done().then(() => { location.hash = href; });
+    done().then(() => linkHandler(href));
   });
   scrim.addEventListener("click", done);
   return done;

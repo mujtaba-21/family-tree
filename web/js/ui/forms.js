@@ -4,22 +4,47 @@ import { field, segmented, checkbox, toggle, help } from "./kit.js";
 import * as D from "../dates.js";
 import { state } from "../store.js";
 
-/** Several name boxes in a row (father, grandfather, ...) with a "+" to add more. */
-export function namesInput(initial, onchange, { placeholders = ["اسم الأب", "اسم الجد", "الجد الثاني"] } = {}) {
+const ANCESTOR = ["اسم الأب", "اسم الجد", "اسم أبي الجد", "اسم جد الجد"];
+const ORDINAL = ["", "", "", "", "", "الخامس", "السادس", "السابع", "الثامن", "التاسع", "العاشر"];
+export const ancestorLabel = (i) => ANCESTOR[i] || `اسم الجد ${ORDINAL[i + 1] || ar(i + 1)}`;
+
+/**
+ * Fathers' names, nearest first, one box each. Writing in the last box opens the next one
+ * (labelled «اسم الجد», «اسم أبي الجد», ...); a box emptied in the middle closes.
+ */
+export function namesInput(initial, onchange) {
   const wrap = h("div", { class: "names-row" });
-  let values = initial && initial.length ? [...initial] : [""];
-  const emit = () => onchange(values.map((v) => v.trim()).filter(Boolean));
-  const render = (focusLast) => {
-    wrap.replaceChildren();
-    values.forEach((v, i) => {
-      const inp = h("input", { class: "inp", value: v, placeholder: placeholders[i] || `الجد ${ar(i)}`, enterkeyhint: "next", autocomplete: "off" });
-      inp.addEventListener("input", () => { values[i] = inp.value; emit(); });
-      wrap.appendChild(inp);
-      if (focusLast && i === values.length - 1) setTimeout(() => inp.focus(), 30);
-    });
-    wrap.appendChild(h("button", { class: "addname", type: "button", "aria-label": "اسم آخر", onclick: () => { values.push(""); render(true); } }, icon("plus")));
+  const inputs = [];
+  const emit = () => onchange(inputs.map((i) => i.value.trim()).filter(Boolean));
+  const relabel = () => inputs.forEach((inp, i) => { inp.placeholder = ancestorLabel(i); inp.setAttribute("aria-label", ancestorLabel(i)); });
+  const tidy = () => {
+    for (const inp of [...inputs]) {
+      if (inp.value.trim() || inp === inputs[inputs.length - 1] || inp === document.activeElement) continue;
+      inputs.splice(inputs.indexOf(inp), 1);
+      inp.remove();
+    }
+    relabel();
   };
-  render(false);
+  const add = (value = "") => {
+    const inp = h("input", { class: "inp", name: "ancestor", value, enterkeyhint: "next", autocomplete: "off", maxlength: 40 });
+    inp.addEventListener("input", () => {
+      if (inp === inputs[inputs.length - 1] && inp.value.trim()) { add(); relabel(); }
+      emit();
+    });
+    inp.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      const next = inputs[inputs.indexOf(inp) + 1];
+      if (next) next.focus();
+    });
+    inp.addEventListener("blur", () => setTimeout(tidy, 0));
+    inputs.push(inp);
+    wrap.appendChild(inp);
+    return inp;
+  };
+  for (const v of (initial || []).filter(Boolean)) add(v);
+  add();
+  relabel();
   return wrap;
 }
 
